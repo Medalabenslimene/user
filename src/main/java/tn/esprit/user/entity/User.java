@@ -18,9 +18,9 @@ import java.time.LocalDateTime;
 @Builder
 public class User {
 
-    @Id
+    @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; //user id 
 
     @Column(name = "name")
     private String name;
