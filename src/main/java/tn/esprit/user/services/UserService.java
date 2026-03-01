@@ -172,6 +172,7 @@ public class UserService {
         }
         return false;
     }
+    @Transactional
     public void changePassword(Long id, String currentPassword, String newPassword) {
     User user = userRepository.findById(id)
         .orElseThrow(() -> new RuntimeException("User not found."));
