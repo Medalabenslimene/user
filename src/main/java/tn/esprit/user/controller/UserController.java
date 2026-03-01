@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import tn.esprit.user.entity.User;
 import tn.esprit.user.exception.UserBannedException;
+import tn.esprit.user.services.CaptchaService;
 import tn.esprit.user.services.UserService;
 
 import java.io.IOException;
@@ -27,11 +28,24 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private CaptchaService captchaService;
+
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> loginRequest) {
+    public ResponseEntity<?> login(@RequestBody Map<String, Object> loginRequest) {
         try {
-            String email = loginRequest.get("email");
-            String pwd = loginRequest.get("pwd");
+            // Verify CAPTCHA first
+            String captchaId = (String) loginRequest.get("captchaId");
+            Number captchaIdx = (Number) loginRequest.get("captchaIndex");
+            if (captchaId == null || captchaIdx == null) {
+                return ResponseEntity.badRequest().body(Map.of("message", "CAPTCHA verification is required."));
+            }
+            if (!captchaService.verify(captchaId, captchaIdx.intValue())) {
+                return ResponseEntity.badRequest().body(Map.of("message", "CAPTCHA verification failed. Please try again."));
+            }
+
+            String email = (String) loginRequest.get("email");
+            String pwd = (String) loginRequest.get("pwd");
             User user = userService.login(email, pwd);
             return ResponseEntity.ok(user);
         } catch (UserBannedException e) {
