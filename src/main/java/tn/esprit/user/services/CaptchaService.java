@@ -32,8 +32,8 @@ public class CaptchaService {
             "https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=200&h=200&fit=crop"
         )),
         new Category("Flower", List.of(
-            "https://images.unsplash.com/photo-1490750967868-88aa4f44baee?w=200&h=200&fit=crop", /// change this image it's bugging
-            "https://images.unsplash.com/photo-1462275646964-a0e3c11f18a6?w=200&h=200&fit=crop", /// change this image it's bugging
+            "https://images.unsplash.com/photo-1490750967868-88aa4486d52a?w=200&h=200&fit=crop",
+            "https://images.unsplash.com/photo-1518882605630-8eb738f13eb1?w=200&h=200&fit=crop",
             "https://images.unsplash.com/photo-1487530811176-3780de880c2d?w=200&h=200&fit=crop"
         )),
         new Category("Mountain", List.of(
@@ -72,7 +72,7 @@ public class CaptchaService {
             "https://images.unsplash.com/photo-1522926193341-e9ffd686c60f?w=200&h=200&fit=crop"
         )),
         new Category("Airplane", List.of(
-            "https://images.unsplash.com/photo-1436491865332-7a61a109db05?w=200&h=200&fit=crop", /// change this image it's bugging
+            "https://images.unsplash.com/photo-1529074963764-98f45c47344b?w=200&h=200&fit=crop",
             "https://images.unsplash.com/photo-1474302770737-173ee21bab63?w=200&h=200&fit=crop",
             "https://images.unsplash.com/photo-1556388158-158ea5ccacbd?w=200&h=200&fit=crop"
         ))
