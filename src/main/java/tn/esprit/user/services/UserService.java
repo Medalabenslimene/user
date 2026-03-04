@@ -39,7 +39,6 @@ public class UserService {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
-    @Transactional
     public User login(String email, String pwd) {
         // 1. Find user by email only
         Optional<User> optUser = userRepository.findByEmail(email);
@@ -62,7 +61,7 @@ public class UserService {
         if (u.getLockedUntil() != null && u.getLockedUntil().isBefore(LocalDateTime.now())) {
             u.setLockedUntil(null);
             u.setFailedAttempts(0);
-            userRepository.save(u);
+            userRepository.saveAndFlush(u);
         }
 
         // 3. Check if user is banned
@@ -76,7 +75,7 @@ public class UserService {
                         u.setBanReason(null);
                         u.setBanDuration(null);
                         u.setBanExpiresAt(null);
-                        userRepository.save(u);
+                        userRepository.saveAndFlush(u);
                         // Continue to password check below
                     } else {
                         throw new UserBannedException(
@@ -117,7 +116,7 @@ public class UserService {
                 // Lock the account for 5 minutes
                 LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(LOCK_DURATION_MINUTES);
                 u.setLockedUntil(lockUntil);
-                userRepository.save(u);
+                userRepository.saveAndFlush(u);
 
                 // Send security email (non-blocking)
                 try {
@@ -132,7 +131,7 @@ public class UserService {
                     attempts
                 );
             } else {
-                userRepository.save(u);
+                userRepository.saveAndFlush(u);
                 int remaining = MAX_FAILED_ATTEMPTS - attempts;
                 throw new RuntimeException(
                     "Invalid credentials. " + remaining + " attempt" + (remaining > 1 ? "s" : "") + " remaining."
@@ -145,7 +144,7 @@ public class UserService {
             u.setFailedAttempts(0);
             u.setLockedUntil(null);
         }
-        userRepository.save(u);
+        userRepository.saveAndFlush(u)
         return u;
     }
 
