@@ -113,4 +113,10 @@ public class User {
 
     @Column(name = "banexpiresat")
     private String banExpiresAt;
+// -------- LOGIN ATTEMPTS fields --------
+@Column(name = "failedattempts")
+private Integer failedAttempts = 0;
+
+@Column(name = "lockeduntil")
+private LocalDateTime lockedUntil;
 }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import tn.esprit.user.entity.User;
+import tn.esprit.user.exception.AccountLockedException;
 import tn.esprit.user.exception.UserBannedException;
 import tn.esprit.user.services.CaptchaService;
 import tn.esprit.user.services.UserService;
@@ -48,6 +49,8 @@ public class UserController {
             String pwd = (String) loginRequest.get("pwd");
             User user = userService.login(email, pwd);
             return ResponseEntity.ok(user);
+        } catch (AccountLockedException e) {
+            return ResponseEntity.status(423).body(e.toResponseBody());
         } catch (UserBannedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.toResponseBody());
         } catch (RuntimeException e) {

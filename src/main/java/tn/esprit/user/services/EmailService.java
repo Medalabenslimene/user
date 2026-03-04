@@ -52,4 +52,24 @@ public class EmailService {
     );
     mailSender.send(message);
 }
+public void sendAccountLockedEmail(String toEmail, String name) {
+    SimpleMailMessage message = new SimpleMailMessage();
+    message.setFrom(fromEmail);
+    message.setTo(toEmail);
+    message.setSubject("⚠️ Security Alert - Account Temporarily Locked - MiNoLingo");
+    message.setText(
+        "Hello " + name + ",\n\n" +
+        "⚠️ SECURITY ALERT\n\n" +
+        "We detected 3 consecutive failed login attempts on your MiNoLingo account.\n\n" +
+        "Your account has been temporarily locked for 5 minutes for your protection.\n\n" +
+        "🕐 You can try again after 5 minutes.\n\n" +
+        "If this was you, simply wait 5 minutes and try again.\n\n" +
+        "If this was NOT you, we recommend:\n" +
+        "  • Change your password immediately after logging in\n" +
+        "  • Make sure your email account is secure\n\n" +
+        "Stay safe!\n" +
+        "MiNoLingo Security Team"
+    );
+    mailSender.send(message);
+}
 }
