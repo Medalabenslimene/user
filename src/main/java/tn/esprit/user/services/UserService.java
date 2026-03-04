@@ -61,7 +61,7 @@ public class UserService {
         if (u.getLockedUntil() != null && u.getLockedUntil().isBefore(LocalDateTime.now())) {
             u.setLockedUntil(null);
             u.setFailedAttempts(0);
-            userRepository.saveAndFlush(u);
+            userRepository.save(u);
         }
 
         // 3. Check if user is banned
@@ -75,7 +75,7 @@ public class UserService {
                         u.setBanReason(null);
                         u.setBanDuration(null);
                         u.setBanExpiresAt(null);
-                        userRepository.saveAndFlush(u);
+                        userRepository.save(u);
                         // Continue to password check below
                     } else {
                         throw new UserBannedException(
@@ -116,7 +116,7 @@ public class UserService {
                 // Lock the account for 5 minutes
                 LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(LOCK_DURATION_MINUTES);
                 u.setLockedUntil(lockUntil);
-                userRepository.saveAndFlush(u);
+                userRepository.save(u);
 
                 // Send security email (non-blocking)
                 try {
@@ -131,7 +131,7 @@ public class UserService {
                     attempts
                 );
             } else {
-                userRepository.saveAndFlush(u);
+                userRepository.save(u);
                 int remaining = MAX_FAILED_ATTEMPTS - attempts;
                 throw new RuntimeException(
                     "Invalid credentials. " + remaining + " attempt" + (remaining > 1 ? "s" : "") + " remaining."
@@ -144,7 +144,7 @@ public class UserService {
             u.setFailedAttempts(0);
             u.setLockedUntil(null);
         }
-        userRepository.saveAndFlush(u)
+        userRepository.save(u);
         return u;
     }
 
