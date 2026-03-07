@@ -183,13 +183,22 @@ public class EmailService {
         html.append("</ul>");
         html.append("</td></tr></table>");
 
-        html.append("<p style='margin:0;font-size:13px;color:#94a3b8;'>Stay safe with MiNoLingo Security Team.</p>");
+        // Support contact card
+        html.append("<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background-color:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;margin-bottom:24px;'>");
+        html.append("<tr><td style='padding:20px 24px;text-align:left;'>");
+        html.append("<p style='margin:0 0 8px;font-size:14px;color:#0369a1;font-weight:700;'>&#x1F4AC; Need help? Contact our support team</p>");
+        html.append("<p style='margin:0 0 12px;font-size:14px;color:#0369a1;line-height:1.6;'>If you believe this was a mistake or you need assistance accessing your account, our team is here to help.</p>");
+        html.append("<a href='mailto:mino.support@minolingo.online' style='display:inline-block;background:linear-gradient(135deg,#38a9f3,#0369a1);color:#ffffff;text-decoration:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;'>&#x1F4E7; Contact Support</a>");
+        html.append("</td></tr></table>");
+
+        html.append("<p style='margin:0;font-size:13px;color:#94a3b8;'>Stay safe &#x2014; the MiNoLingo Security Team &#x1F6E1;</p>");
         html.append("</td></tr>");
 
         // Footer
         html.append("<tr><td style='background-color:#ffffff;padding:24px 40px 32px;text-align:center;border-top:1px solid #e2e8f0;'>");
         html.append("<p style='margin:0;font-size:13px;color:#94a3b8;'>Thank you for using <strong style='color:#6366f1;'>MiNoLingo</strong></p>");
-        html.append("<p style='margin:8px 0 0;font-size:11px;color:#cbd5e1;'>© 2026 MiNoLingo. All rights reserved.</p>");
+        html.append("<p style='margin:8px 0 0;font-size:12px;color:#94a3b8;'>Questions? Reach us at <a href='mailto:mino.support@minolingo.online' style='color:#38a9f3;text-decoration:none;font-weight:600;'>mino.support@minolingo.online</a></p>");
+        html.append("<p style='margin:8px 0 0;font-size:11px;color:#cbd5e1;'>&#169; 2026 MiNoLingo. All rights reserved.</p>");
         html.append("</td></tr>");
 
         html.append("</table></td></tr></table></body></html>");

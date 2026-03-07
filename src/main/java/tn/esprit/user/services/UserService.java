@@ -222,10 +222,12 @@ public class UserService {
     }
 
     public Optional<User> updateProfile(Long id, String name, String username) {
-        return userRepository.findById(id).map(user -> {
-            return userRepository.save(user);
-        });
-    }
+    return userRepository.findById(id).map(user -> {
+        if (name != null) user.setName(name);
+        if (username != null) user.setUsername(username);
+        return userRepository.save(user);
+    });
+}
 
     public String saveAvatar(Long id, MultipartFile file) throws IOException {
         Optional<User> optUser = userRepository.findById(id);
