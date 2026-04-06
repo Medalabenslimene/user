@@ -36,6 +36,9 @@ public class UserService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private PasswordService passwordService;
+
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
@@ -107,8 +110,23 @@ public class UserService {
             }
         }
 
-        // 4. Verify password
-        if (!u.getPwd().equals(pwd)) {
+        // 4. Verify password using BCrypt
+        boolean passwordMatches;
+        // Check if password is hashed or plain text (for migration)
+        if (passwordService.isHashedPassword(u.getPwd())) {
+            // Already hashed - use BCrypt verification
+            passwordMatches = passwordService.verifyPassword(pwd, u.getPwd());
+        } else {
+            // Plain text - verify directly and migrate to hashed
+            passwordMatches = u.getPwd().equals(pwd);
+            if (passwordMatches) {
+                // Migrate to hashed password on successful login
+                String hashedPassword = passwordService.hashPassword(pwd);
+                u.setPwd(hashedPassword);
+            }
+        }
+        
+        if (!passwordMatches) {
             int attempts = (u.getFailedAttempts() != null ? u.getFailedAttempts() : 0) + 1;
             u.setFailedAttempts(attempts);
 
@@ -150,6 +168,8 @@ public class UserService {
 
     public User createUser(User user) {
         user.setEmailVerified(false);
+        String hashedPassword = passwordService.hashPassword(user.getPwd());
+        user.setPwd(hashedPassword);
         User savedUser = userRepository.save(user);
         emailVerificationService.sendVerificationCode(savedUser);
         return savedUser;
@@ -222,12 +242,12 @@ public class UserService {
     }
 
     public Optional<User> updateProfile(Long id, String name, String username) {
-    return userRepository.findById(id).map(user -> {
-        if (name != null) user.setName(name);
-        if (username != null) user.setUsername(username);
-        return userRepository.save(user);
-    });
-}
+        return userRepository.findById(id).map(user -> {
+            if (name != null) user.setName(name);
+            if (username != null) user.setUsername(username);
+            return userRepository.save(user);
+        });
+    }
 
     public String saveAvatar(Long id, MultipartFile file) throws IOException {
         Optional<User> optUser = userRepository.findById(id);
@@ -256,21 +276,37 @@ public class UserService {
         }
         return false;
     }
+
     @Transactional
     public void changePassword(Long id, String currentPassword, String newPassword) {
-    User user = userRepository.findById(id)
-        .orElseThrow(() -> new RuntimeException("User not found."));
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("User not found."));
 
-    // Verify current password
-    if (!user.getPwd().equals(currentPassword)) {
-        throw new RuntimeException("Current password is incorrect.");
+        // Verify current password using BCrypt
+        boolean currentPasswordMatches;
+        if (passwordService.isHashedPassword(user.getPwd())) {
+            currentPasswordMatches = passwordService.verifyPassword(currentPassword, user.getPwd());
+        } else {
+            // Plain text password - verify and migrate
+            currentPasswordMatches = user.getPwd().equals(currentPassword);
+            if (currentPasswordMatches) {
+                // Migrate to hashed password
+                String hashedPassword = passwordService.hashPassword(currentPassword);
+                user.setPwd(hashedPassword);
+            }
+        }
+
+        if (!currentPasswordMatches) {
+            throw new RuntimeException("Current password is incorrect.");
+        }
+
+        if (newPassword.equals(currentPassword)) {
+            throw new RuntimeException("New password must be different from current password.");
+        }
+
+        // Hash the new password
+        String hashedNewPassword = passwordService.hashPassword(newPassword);
+        user.setPwd(hashedNewPassword);
+        userRepository.save(user);
     }
-
-    if (newPassword.equals(currentPassword)) {
-        throw new RuntimeException("New password must be different from current password.");
-    }
-
-    user.setPwd(newPassword);
-    userRepository.save(user);
-}
 }
