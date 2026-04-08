@@ -1,0 +1,250 @@
+"""
+MinoLingo Face Recognition Microservice
+========================================
+Flask microservice using DeepFace (ArcFace backend) for face
+registration and verification. Runs on port 5001.
+
+Endpoints:
+  POST /face/register/<userId>  — Register a face from base64 image
+  POST /face/verify/<userId>    — Verify a live photo against stored face
+  GET  /face/status/<userId>    — Check registration status
+  DELETE /face/delete/<userId>  — Remove stored face data
+"""
+
+import os
+import base64
+import json
+import tempfile
+import traceback
+from io import BytesIO
+
+import numpy as np
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
+# ── Configuration ──────────────────────────────────────────────
+FACE_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "face_data")
+os.makedirs(FACE_DATA_DIR, exist_ok=True)
+
+MODEL_NAME = "ArcFace"          # Best accuracy among DeepFace backends
+DETECTOR_BACKEND = "opencv"     # Fast, no extra deps
+DISTANCE_METRIC = "cosine"      # Cosine similarity for ArcFace embeddings
+VERIFY_THRESHOLD = 0.68         # ArcFace cosine threshold (lower = stricter)
+
+# Lazy-load DeepFace to speed up startup
+_deepface = None
+
+def get_deepface():
+    """Lazy-import DeepFace so startup is fast and model downloads
+    happen only when first needed."""
+    global _deepface
+    if _deepface is None:
+        from deepface import DeepFace
+        _deepface = DeepFace
+        # Warm up the model by running a dummy representation
+        print("[FaceService] Warming up ArcFace model...")
+        try:
+            # Create a tiny dummy image to force model load
+            dummy = np.zeros((64, 64, 3), dtype=np.uint8)
+            tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+            from PIL import Image
+            Image.fromarray(dummy).save(tmp.name)
+            try:
+                _deepface.represent(img_path=tmp.name, model_name=MODEL_NAME,
+                                    detector_backend="skip", enforce_detection=False)
+            except Exception:
+                pass  # It's fine if dummy fails; model is loaded
+            finally:
+                os.unlink(tmp.name)
+        except ImportError:
+            # PIL not available — model will load on first real request
+            pass
+        print("[FaceService] ArcFace model ready.")
+    return _deepface
+
+
+def _embedding_path(user_id: str) -> str:
+    """Path to the stored embedding file for a user."""
+    return os.path.join(FACE_DATA_DIR, f"{user_id}.npy")
+
+
+def _meta_path(user_id: str) -> str:
+    """Path to metadata JSON for a user."""
+    return os.path.join(FACE_DATA_DIR, f"{user_id}_meta.json")
+
+
+def _decode_base64_image(data: str) -> str:
+    """Decode a base64 image string and save to a temp file.
+    Returns the temp file path."""
+    # Strip data URI prefix if present  (e.g. "data:image/png;base64,...")
+    if "," in data:
+        data = data.split(",", 1)[1]
+
+    img_bytes = base64.b64decode(data)
+    tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+    tmp.write(img_bytes)
+    tmp.close()
+    return tmp.name
+
+
+def _get_embedding(img_path: str):
+    """Extract face embedding from image. Returns numpy array or raises."""
+    DeepFace = get_deepface()
+    representations = DeepFace.represent(
+        img_path=img_path,
+        model_name=MODEL_NAME,
+        detector_backend=DETECTOR_BACKEND,
+        enforce_detection=True
+    )
+    if not representations:
+        raise ValueError("No face detected in the image.")
+    # Use the first (largest) face
+    return np.array(representations[0]["embedding"])
+
+
+# ── Routes ─────────────────────────────────────────────────────
+
+@app.route("/face/register/<user_id>", methods=["POST"])
+def register_face(user_id: str):
+    """Register a user's face from a base64-encoded photo."""
+    try:
+        body = request.get_json(force=True)
+        image_data = body.get("image")
+        if not image_data:
+            return jsonify({"error": "Missing 'image' field (base64)."}), 400
+
+        img_path = _decode_base64_image(image_data)
+
+        try:
+            embedding = _get_embedding(img_path)
+        finally:
+            os.unlink(img_path)  # cleanup temp file
+
+        # Save embedding
+        np.save(_embedding_path(user_id), embedding)
+
+        # Save metadata
+        import datetime
+        meta = {
+            "userId": user_id,
+            "registeredAt": datetime.datetime.utcnow().isoformat(),
+            "model": MODEL_NAME,
+            "embeddingSize": len(embedding)
+        }
+        with open(_meta_path(user_id), "w") as f:
+            json.dump(meta, f)
+
+        return jsonify({
+            "success": True,
+            "message": f"Face registered for user {user_id}.",
+            "embeddingSize": len(embedding)
+        })
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": f"Registration failed: {str(e)}"}), 500
+
+
+@app.route("/face/verify/<user_id>", methods=["POST"])
+def verify_face(user_id: str):
+    """Verify a live photo against the stored face for a user."""
+    try:
+        emb_path = _embedding_path(user_id)
+        if not os.path.exists(emb_path):
+            return jsonify({"error": f"No face registered for user {user_id}."}), 404
+
+        body = request.get_json(force=True)
+        image_data = body.get("image")
+        if not image_data:
+            return jsonify({"error": "Missing 'image' field (base64)."}), 400
+
+        img_path = _decode_base64_image(image_data)
+
+        try:
+            live_embedding = _get_embedding(img_path)
+        finally:
+            os.unlink(img_path)
+
+        stored_embedding = np.load(emb_path)
+
+        # Cosine similarity
+        dot = np.dot(stored_embedding, live_embedding)
+        norm_a = np.linalg.norm(stored_embedding)
+        norm_b = np.linalg.norm(live_embedding)
+        cosine_distance = 1 - (dot / (norm_a * norm_b))
+
+        verified = cosine_distance <= VERIFY_THRESHOLD
+        confidence = round(max(0, 1 - cosine_distance), 4)
+
+        return jsonify({
+            "verified": bool(verified),
+            "confidence": confidence,
+            "distance": round(float(cosine_distance), 4),
+            "threshold": VERIFY_THRESHOLD
+        })
+
+    except ValueError as e:
+        return jsonify({"error": str(e), "verified": False}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": f"Verification failed: {str(e)}", "verified": False}), 500
+
+
+@app.route("/face/status/<user_id>", methods=["GET"])
+def face_status(user_id: str):
+    """Check if a user has a registered face."""
+    emb_path = _embedding_path(user_id)
+    meta_path_file = _meta_path(user_id)
+
+    registered = os.path.exists(emb_path)
+    meta = {}
+    if registered and os.path.exists(meta_path_file):
+        with open(meta_path_file, "r") as f:
+            meta = json.load(f)
+
+    return jsonify({
+        "userId": user_id,
+        "registered": registered,
+        "registeredAt": meta.get("registeredAt"),
+        "model": meta.get("model")
+    })
+
+
+@app.route("/face/delete/<user_id>", methods=["DELETE"])
+def delete_face(user_id: str):
+    """Remove stored face data for a user."""
+    emb_path = _embedding_path(user_id)
+    meta_path_file = _meta_path(user_id)
+
+    deleted = False
+    if os.path.exists(emb_path):
+        os.remove(emb_path)
+        deleted = True
+    if os.path.exists(meta_path_file):
+        os.remove(meta_path_file)
+
+    if deleted:
+        return jsonify({"success": True, "message": f"Face data deleted for user {user_id}."})
+    else:
+        return jsonify({"error": f"No face data found for user {user_id}."}), 404
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    """Health check endpoint."""
+    return jsonify({"status": "ok", "model": MODEL_NAME})
+
+
+# ── Entry Point ────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    print("=" * 50)
+    print("  MinoLingo Face Recognition Service")
+    print(f"  Model: {MODEL_NAME} | Port: 5001")
+    print("=" * 50)
+    app.run(host="0.0.0.0", port=5001, debug=False)
