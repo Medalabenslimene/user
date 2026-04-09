@@ -92,6 +92,7 @@ public class FaceController {
             return ResponseEntity.ok(Map.of("status", "ok", "service", "face-recognition"));
         }
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(Map.of("status", "unavailable", "message", "Face recognition service is not running on port 5001."));
+                .body(Map.of("status", "unavailable", "message",
+                        "Face recognition service is not running on port 5001."));
     }
 }

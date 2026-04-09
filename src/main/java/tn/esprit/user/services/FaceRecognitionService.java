@@ -15,7 +15,7 @@ import java.util.Map;
 @Service
 public class FaceRecognitionService {
 
-    private static final String FACE_SERVICE_URL = "http://localhost:5001";
+    private static final String FACE_SERVICE_URL = "http://127.0.0.1:5001";
 
     private final RestTemplate restTemplate;
 
