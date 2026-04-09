@@ -1,7 +1,6 @@
 package tn.esprit.user.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.esprit.user.entity.PasswordResetToken;
@@ -24,8 +23,8 @@ public class PasswordResetService {
     @Autowired
     private EmailService emailService;
 
-    // Use BCrypt if you're already hashing passwords, otherwise remove this
-    // private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    @Autowired
+    private PasswordService passwordService;
 
     @Transactional
     public void requestPasswordReset(String email) {
@@ -67,8 +66,8 @@ public class PasswordResetService {
         User user = userRepository.findByEmail(resetToken.getEmail())
             .orElseThrow(() -> new RuntimeException("User not found."));
 
-        // If you hash passwords: user.setPwd(passwordEncoder.encode(newPassword));
-        user.setPwd(newPassword);
+        // Hash the new password before saving
+        user.setPwd(passwordService.hashPassword(newPassword));
         userRepository.save(user);
 
         resetToken.setUsed(true);
