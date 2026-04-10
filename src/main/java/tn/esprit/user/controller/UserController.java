@@ -42,7 +42,8 @@ public class UserController {
                 return ResponseEntity.badRequest().body(Map.of("message", "CAPTCHA verification is required."));
             }
             if (!captchaService.verify(captchaId, captchaIdx.intValue())) {
-                return ResponseEntity.badRequest().body(Map.of("message", "CAPTCHA verification failed. Please try again."));
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "CAPTCHA verification failed. Please try again."));
             }
 
             String email = (String) loginRequest.get("email");
@@ -53,39 +54,12 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.toResponseBody());
         } catch (AccountLockedException e) {
             return ResponseEntity.status(423).body(Map.of(
-                "type", "ACCOUNT_LOCKED",
-                "message", "Too many failed attempts. Your account is locked for 5 minutes.",
-                "minutesLeft", 5,
-                "lockedUntil", e.getLockedUntil() != null ? e.getLockedUntil().toString() : ""
-            ));
+                    "type", "ACCOUNT_LOCKED",
+                    "message", "Too many failed attempts. Your account is locked for 5 minutes.",
+                    "minutesLeft", 5,
+                    "lockedUntil", e.getLockedUntil() != null ? e.getLockedUntil().toString() : ""));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    @PostMapping("/google-login")
-    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> request) {
-        try {
-            String idTokenString = request.get("idToken");
-            if (idTokenString == null || idTokenString.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("message", "ID token is required."));
-            }
-            User user = userService.googleLogin(idTokenString);
-            return ResponseEntity.ok(user);
-        } catch (UserBannedException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.toResponseBody());
-        } catch (AccountLockedException e) {
-            return ResponseEntity.status(423).body(Map.of(
-                "type", "ACCOUNT_LOCKED",
-                "message", "Too many failed attempts. Your account is locked for 5 minutes.",
-                "minutesLeft", 5,
-                "lockedUntil", e.getLockedUntil() != null ? e.getLockedUntil().toString() : ""
-            ));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("message", "Google login failed: " + e.getMessage()));
         }
     }
 
@@ -134,7 +108,8 @@ public class UserController {
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "An unexpected error occurred."));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "An unexpected error occurred."));
         }
     }
 
@@ -147,7 +122,8 @@ public class UserController {
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "An unexpected error occurred."));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "An unexpected error occurred."));
         }
     }
 
@@ -187,9 +163,12 @@ public class UserController {
             Resource resource = new UrlResource(filePath.toUri());
             if (resource.exists() && resource.isReadable()) {
                 String contentType = "image/jpeg";
-                if (filename.endsWith(".png")) contentType = "image/png";
-                else if (filename.endsWith(".gif")) contentType = "image/gif";
-                else if (filename.endsWith(".webp")) contentType = "image/webp";
+                if (filename.endsWith(".png"))
+                    contentType = "image/png";
+                else if (filename.endsWith(".gif"))
+                    contentType = "image/gif";
+                else if (filename.endsWith(".webp"))
+                    contentType = "image/webp";
                 return ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(contentType))
                         .body(resource);
@@ -207,23 +186,25 @@ public class UserController {
         }
         return ResponseEntity.notFound().build();
     }
+
     @PostMapping("/change-password/{id}")
-public ResponseEntity<?> changePassword(@PathVariable Long id, @RequestBody Map<String, String> request) {
-    try {
-        String currentPassword = request.get("currentPassword");
-        String newPassword = request.get("newPassword");
+    public ResponseEntity<?> changePassword(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        try {
+            String currentPassword = request.get("currentPassword");
+            String newPassword = request.get("newPassword");
 
-        if (currentPassword == null || currentPassword.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Current password is required."));
-        }
-        if (newPassword == null || newPassword.length() < 6) {
-            return ResponseEntity.badRequest().body(Map.of("message", "New password must be at least 6 characters."));
-        }
+            if (currentPassword == null || currentPassword.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Current password is required."));
+            }
+            if (newPassword == null || newPassword.length() < 6) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "New password must be at least 6 characters."));
+            }
 
-        userService.changePassword(id, currentPassword, newPassword);
-        return ResponseEntity.ok(Map.of("message", "Password changed successfully."));
-    } catch (RuntimeException e) {
-        return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            userService.changePassword(id, currentPassword, newPassword);
+            return ResponseEntity.ok(Map.of("message", "Password changed successfully."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
-}
 }

@@ -15,12 +15,12 @@ import java.util.Map;
 @Service
 public class FaceRecognitionService {
 
-    private static final String FACE_SERVICE_URL = "http://127.0.0.1:5001";
+    private static final String FACE_SERVICE_URL = "http://localhost:5001";
 
     private final RestTemplate restTemplate;
 
-    private static final ParameterizedTypeReference<Map<String, Object>> MAP_TYPE =
-            new ParameterizedTypeReference<Map<String, Object>>() {};
+    private static final ParameterizedTypeReference<Map<String, Object>> MAP_TYPE = new ParameterizedTypeReference<Map<String, Object>>() {
+    };
 
     public FaceRecognitionService() {
         this.restTemplate = new RestTemplate();
@@ -34,13 +34,11 @@ public class FaceRecognitionService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(
-                Map.of("image", base64Image), headers
-        );
+                Map.of("image", base64Image), headers);
 
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url, HttpMethod.POST, entity, MAP_TYPE
-            );
+                    url, HttpMethod.POST, entity, MAP_TYPE);
             return response.getBody();
         } catch (HttpClientErrorException e) {
             return parseErrorResponse(e);
@@ -57,13 +55,11 @@ public class FaceRecognitionService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(
-                Map.of("image", base64Image), headers
-        );
+                Map.of("image", base64Image), headers);
 
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url, HttpMethod.POST, entity, MAP_TYPE
-            );
+                    url, HttpMethod.POST, entity, MAP_TYPE);
             return response.getBody();
         } catch (HttpClientErrorException e) {
             return parseErrorResponse(e);
@@ -80,8 +76,7 @@ public class FaceRecognitionService {
 
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url, HttpMethod.GET, null, MAP_TYPE
-            );
+                    url, HttpMethod.GET, null, MAP_TYPE);
             return response.getBody();
         } catch (HttpClientErrorException e) {
             return parseErrorResponse(e);
@@ -98,8 +93,7 @@ public class FaceRecognitionService {
 
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url, HttpMethod.DELETE, null, MAP_TYPE
-            );
+                    url, HttpMethod.DELETE, null, MAP_TYPE);
             return response.getBody();
         } catch (HttpClientErrorException e) {
             return parseErrorResponse(e);
@@ -114,8 +108,7 @@ public class FaceRecognitionService {
     public boolean isServiceHealthy() {
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    FACE_SERVICE_URL + "/health", HttpMethod.GET, null, MAP_TYPE
-            );
+                    FACE_SERVICE_URL + "/health", HttpMethod.GET, null, MAP_TYPE);
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             return false;

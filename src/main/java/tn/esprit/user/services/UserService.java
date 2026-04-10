@@ -42,83 +42,6 @@ public class UserService {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
-    @Value("${google.client.id:123823672043-vs1f3hv4qts4j48rq0sst9rh46i8v3uf.apps.googleusercontent.com}")
-    private String googleClientId;
-
-    public User googleLogin(String idTokenString) throws Exception {
-        org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
-        String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idTokenString;
-        
-        try {
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> payload = restTemplate.getForObject(url, java.util.Map.class);
-            if (payload == null || payload.get("email") == null) {
-                throw new RuntimeException("Invalid Google ID token payload.");
-            }
-            
-            // Optional: verify the audience (Client ID) matches
-            // if (!googleClientId.equals(payload.get("aud"))) { throw new RuntimeException("Invalid token audience."); }
-
-            String email = (String) payload.get("email");
-            String name = (String) payload.get("name");
-            String pictureUrl = (String) payload.get("picture");
-
-            Optional<User> optUser = userRepository.findByEmail(email);
-            User u;
-            if (optUser.isEmpty()) {
-                u = new User();
-                u.setEmail(email);
-                u.setName(name);
-                u.setUsername(email.split("@")[0]);
-                u.setPwd(passwordService.hashPassword(java.util.UUID.randomUUID().toString()));
-                u.setEmailVerified(true);
-                u.setAvatar(pictureUrl);
-                u.setRole(Role.ETUDIANT);
-                u = userRepository.save(u);
-            } else {
-                u = optUser.get();
-                // Check if banned
-                if (Boolean.TRUE.equals(u.getBanned())) {
-                    if (u.getBanExpiresAt() != null && !u.getBanExpiresAt().isEmpty()) {
-                        try {
-                            Instant expiresAt = Instant.parse(u.getBanExpiresAt());
-                            if (expiresAt.isBefore(Instant.now())) {
-                                u.setBanned(false);
-                                u.setBanReason(null);
-                                u.setBanDuration(null);
-                                u.setBanExpiresAt(null);
-                                userRepository.save(u);
-                            } else {
-                                throw new UserBannedException("Your account is banned.", u.getBanReason(), u.getBanDuration(), u.getBanExpiresAt());
-                            }
-                        } catch (UserBannedException e) {
-                            throw e;
-                        } catch (Exception e) {
-                            throw new UserBannedException("Your account is banned.", u.getBanReason(), u.getBanDuration(), u.getBanExpiresAt());
-                        }
-                    } else {
-                        throw new UserBannedException("Your account is banned.", u.getBanReason(), u.getBanDuration(), u.getBanExpiresAt());
-                    }
-                }
-                
-                // Check if account is locked
-                if (u.getLockedUntil() != null && u.getLockedUntil().isAfter(LocalDateTime.now())) {
-                    throw new AccountLockedException("Account locked for 5 minutes due to too many failed attempts.", u.getLockedUntil(), u.getFailedAttempts() != null ? u.getFailedAttempts() : 3);
-                } else if (u.getLockedUntil() != null && u.getLockedUntil().isBefore(LocalDateTime.now())) {
-                    u.setLockedUntil(null);
-                    u.setFailedAttempts(0);
-                    userRepository.save(u);
-                }
-            }
-            return u;
-        } catch (Exception e) {
-            if (e instanceof UserBannedException || e instanceof AccountLockedException) {
-                throw e;
-            }
-            throw new RuntimeException("Invalid Google ID token: " + e.getMessage());
-        }
-    }
-
     public User login(String email, String pwd) {
         // 1. Find user by email only
         Optional<User> optUser = userRepository.findByEmail(email);
@@ -131,10 +54,9 @@ public class UserService {
         // 2. Check if account is locked
         if (u.getLockedUntil() != null && u.getLockedUntil().isAfter(LocalDateTime.now())) {
             throw new AccountLockedException(
-                "Account locked for 5 minutes due to too many failed attempts.",
-                u.getLockedUntil(),
-                u.getFailedAttempts() != null ? u.getFailedAttempts() : MAX_FAILED_ATTEMPTS
-            );
+                    "Account locked for 5 minutes due to too many failed attempts.",
+                    u.getLockedUntil(),
+                    u.getFailedAttempts() != null ? u.getFailedAttempts() : MAX_FAILED_ATTEMPTS);
         }
 
         // Auto-unlock if lock period has expired
@@ -159,31 +81,28 @@ public class UserService {
                         // Continue to password check below
                     } else {
                         throw new UserBannedException(
-                            "Your account is banned.",
-                            u.getBanReason(),
-                            u.getBanDuration(),
-                            u.getBanExpiresAt()
-                        );
+                                "Your account is banned.",
+                                u.getBanReason(),
+                                u.getBanDuration(),
+                                u.getBanExpiresAt());
                     }
                 } catch (UserBannedException e) {
                     throw e;
                 } catch (Exception e) {
                     // If date parsing fails, treat as still banned
                     throw new UserBannedException(
-                        "Your account is banned.",
-                        u.getBanReason(),
-                        u.getBanDuration(),
-                        u.getBanExpiresAt()
-                    );
+                            "Your account is banned.",
+                            u.getBanReason(),
+                            u.getBanDuration(),
+                            u.getBanExpiresAt());
                 }
             } else {
                 // Permanent ban
                 throw new UserBannedException(
-                    "Your account is banned.",
-                    u.getBanReason(),
-                    u.getBanDuration(),
-                    u.getBanExpiresAt()
-                );
+                        "Your account is banned.",
+                        u.getBanReason(),
+                        u.getBanDuration(),
+                        u.getBanExpiresAt());
             }
         }
 
@@ -202,7 +121,7 @@ public class UserService {
                 u.setPwd(hashedPassword);
             }
         }
-        
+
         if (!passwordMatches) {
             int attempts = (u.getFailedAttempts() != null ? u.getFailedAttempts() : 0) + 1;
             u.setFailedAttempts(attempts);
@@ -221,16 +140,14 @@ public class UserService {
                 }
 
                 throw new AccountLockedException(
-                    "Account locked for 5 minutes due to too many failed attempts.",
-                    lockUntil,
-                    attempts
-                );
+                        "Account locked for 5 minutes due to too many failed attempts.",
+                        lockUntil,
+                        attempts);
             } else {
                 userRepository.save(u);
                 int remaining = MAX_FAILED_ATTEMPTS - attempts;
                 throw new RuntimeException(
-                    "Invalid credentials. " + remaining + " attempt" + (remaining > 1 ? "s" : "") + " remaining."
-                );
+                        "Invalid credentials. " + remaining + " attempt" + (remaining > 1 ? "s" : "") + " remaining.");
             }
         }
 
@@ -320,8 +237,10 @@ public class UserService {
 
     public Optional<User> updateProfile(Long id, String name, String username) {
         return userRepository.findById(id).map(user -> {
-            if (name != null) user.setName(name);
-            if (username != null) user.setUsername(username);
+            if (name != null)
+                user.setName(name);
+            if (username != null)
+                user.setUsername(username);
             return userRepository.save(user);
         });
     }
@@ -357,7 +276,7 @@ public class UserService {
     @Transactional
     public void changePassword(Long id, String currentPassword, String newPassword) {
         User user = userRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("User not found."));
+                .orElseThrow(() -> new RuntimeException("User not found."));
 
         // Verify current password using BCrypt
         boolean currentPasswordMatches;
