@@ -122,17 +122,30 @@ public class FaceController {
         }
 
         User user = optUser.get();
-        boolean registered = Boolean.TRUE.equals(user.getFaceRegistered());
+
+        // Use Python service as the source of truth for the face embedding.
+        // The DB flag can get out of sync if a previous save failed.
+        boolean dbFlag = Boolean.TRUE.equals(user.getFaceRegistered());
+        boolean serviceFlag = false;
+        try {
+            Map<String, Object> serviceStatus = faceRecognitionService.getFaceStatus(user.getId());
+            serviceFlag = Boolean.TRUE.equals(serviceStatus.get("registered"));
+        } catch (Exception ignored) {}
+
+        // If the face file exists on the service but DB flag is missing, sync it
+        if (serviceFlag && !dbFlag) {
+            userService.setFaceRegistered(user.getId(), true);
+        }
+        // If DB says registered but service has no file, clear the stale flag
+        if (dbFlag && !serviceFlag) {
+            userService.setFaceRegistered(user.getId(), false);
+        }
+
+        boolean registered = serviceFlag || dbFlag;
+
         Map<String, Object> response = new HashMap<>();
         response.put("faceRegistered", registered);
         response.put("userId", user.getId());
-
-        if (registered) {
-            // Also check the face service for consistency
-            Map<String, Object> serviceStatus = faceRecognitionService.getFaceStatus(user.getId());
-            response.put("serviceStatus", serviceStatus.get("registered"));
-        }
-
         return ResponseEntity.ok(response);
     }
 
