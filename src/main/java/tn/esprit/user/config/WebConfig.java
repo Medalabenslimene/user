@@ -15,21 +15,23 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**", 
-            "https://minolingo.online",
-            "https://www.minolingo.online",
-            "http://localhost:4200",
-            "http://127.0.0.1:4200"
-        );
+        registry.addMapping("/api/**")
+                .allowedOrigins(
+                    "https://minolingo.online",
+                    "https://www.minolingo.online",
+                    "http://localhost:4200",
+                    "http://127.0.0.1:4200"
+                );
         
         // Allow camera access from all origins
-        registry.addMapping("/api/users/face/**", 
-            "*",
-            "https://minolingo.online",
-            "https://www.minolingo.online",
-            "http://localhost:4200",
-            "http://127.0.0.1:4200"
-        );
+        registry.addMapping("/api/users/face/**")
+                .allowedOrigins(
+                    "*",
+                    "https://minolingo.online",
+                    "https://www.minolingo.online",
+                    "http://localhost:4200",
+                    "http://127.0.0.1:4200"
+                );
     }
 
     @Override
@@ -43,10 +45,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void configureMessageConverters(
-            org.springframework.http.converter.HttpMessageConverter<?>[] converters) {
+            java.util.List<org.springframework.http.converter.HttpMessageConverter<?>> converters) {
         // Add any custom message converters if needed
     }
 }
-
-package tn.esprit.user.config;
-
