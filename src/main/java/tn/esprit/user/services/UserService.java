@@ -5,14 +5,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import tn.esprit.user.entity.Role;
 import tn.esprit.user.entity.User;
+import tn.esprit.user.entity.Role;
 import tn.esprit.user.exception.AccountLockedException;
 import tn.esprit.user.exception.UserBannedException;
 import tn.esprit.user.repository.UserRepository;
 
-import java.util.Base64;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -272,83 +271,6 @@ public class UserService {
             return true;
         }
         return false;
-    }
-
-    /**
-     * Google OAuth login / register.
-     * Decodes the Google ID token (JWT) to extract user info,
-     * then finds the existing user or creates a new one.
-     */
-    @SuppressWarnings("unchecked")
-    public User googleLogin(String idToken) {
-        try {
-            // JWT has 3 parts: header.payload.signature — decode the payload (part 2)
-            String[] parts = idToken.split("\\.");
-            if (parts.length < 2) {
-                throw new RuntimeException("Invalid Google token format.");
-            }
-            // Base64 URL decode the payload
-            byte[] payloadBytes = Base64.getUrlDecoder().decode(
-                parts[1].length() % 4 == 0 ? parts[1] : parts[1] + "=".repeat(4 - parts[1].length() % 4)
-            );
-            ObjectMapper mapper = new ObjectMapper();
-            java.util.Map<String, Object> payload = mapper.readValue(payloadBytes, java.util.Map.class);
-
-            String email = (String) payload.get("email");
-            String name  = (String) payload.getOrDefault("name", email);
-            String sub   = (String) payload.get("sub"); // Google unique user ID
-            String picture = (String) payload.getOrDefault("picture", null);
-
-            if (email == null) {
-                throw new RuntimeException("Could not retrieve email from Google account.");
-            }
-
-            // Find existing user or create new one
-            Optional<User> existing = userRepository.findByEmail(email);
-            if (existing.isPresent()) {
-                User u = existing.get();
-                // Check if banned
-                if (Boolean.TRUE.equals(u.getBanned())) {
-                    throw new UserBannedException(
-                        "Your account is banned.",
-                        u.getBanReason(),
-                        u.getBanDuration(),
-                        u.getBanExpiresAt()
-                    );
-                }
-                // Update avatar from Google if not set
-                if (u.getAvatar() == null && picture != null) {
-                    u.setAvatar(picture);
-                    userRepository.save(u);
-                }
-                return u;
-            } else {
-                // Create new user from Google account
-                User newUser = new User();
-                newUser.setEmail(email);
-                newUser.setName(name);
-                // Generate username from email prefix
-                String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9_]", "");
-                newUser.setUsername(baseUsername);
-                newUser.setEmailVerified(true); // Google already verified the email
-                newUser.setAvatar(picture);
-                newUser.setRole(tn.esprit.user.entity.Role.ETUDIANT); // Default role
-                newUser.setInscriptionOk(true);
-                newUser.setPosterForum(false);
-                newUser.setJoinDate(java.time.LocalDate.now());
-                // Set a random secure password (user will use Google to login)
-                newUser.setPwd(passwordService.hashPassword(sub + "_google_" + System.currentTimeMillis()));
-                newUser.setXp(0);
-                newUser.setStreak(0);
-                newUser.setCoins(0);
-                newUser.setFailedAttempts(0);
-                return userRepository.save(newUser);
-            }
-        } catch (UserBannedException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new RuntimeException("Google login failed: " + e.getMessage());
-        }
     }
 
     @Transactional

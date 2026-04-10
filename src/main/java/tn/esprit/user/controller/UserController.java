@@ -206,20 +206,4 @@ public class UserController {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
-
-    @PostMapping("/google-login")
-    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> body) {
-        try {
-            String credential = body.get("credential");
-            if (credential == null || credential.isBlank()) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Missing Google credential token."));
-            }
-            User user = userService.googleLogin(credential);
-            return ResponseEntity.ok(user);
-        } catch (UserBannedException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.toResponseBody());
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
-        }
-    }
 }
