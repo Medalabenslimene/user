@@ -13,26 +13,7 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
-                .allowedOrigins(
-                    "https://minolingo.online",
-                    "https://www.minolingo.online",
-                    "http://localhost:4200",
-                    "http://127.0.0.1:4200"
-                );
-        
-        // Allow camera access from all origins
-        registry.addMapping("/api/users/face/**")
-                .allowedOrigins(
-                    "*",
-                    "https://minolingo.online",
-                    "https://www.minolingo.online",
-                    "http://localhost:4200",
-                    "http://127.0.0.1:4200"
-                );
-    }
+
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
