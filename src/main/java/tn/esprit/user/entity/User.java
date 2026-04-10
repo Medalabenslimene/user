@@ -113,6 +113,10 @@ public class User {
 
     @Column(name = "banexpiresat")
     private String banExpiresAt;
+// -------- FACE RECOGNITION fields --------
+@Column(name = "faceregistered")
+private Boolean faceRegistered = false;
+
 // -------- LOGIN ATTEMPTS fields --------
 @Column(name = "failedattempts")
 private Integer failedAttempts = 0;

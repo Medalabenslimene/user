@@ -19,6 +19,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -208,6 +209,7 @@ public class UserService {
             existingUser.setBanReason(updatedUser.getBanReason());
             existingUser.setBanDuration(updatedUser.getBanDuration());
             existingUser.setBanExpiresAt(updatedUser.getBanExpiresAt());
+            existingUser.setFaceRegistered(updatedUser.getFaceRegistered());
             return userRepository.save(existingUser);
         });
     }
@@ -304,5 +306,142 @@ public class UserService {
         String hashedNewPassword = passwordService.hashPassword(newPassword);
         user.setPwd(hashedNewPassword);
         userRepository.save(user);
+    }
+
+    public Optional<User> getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
+    @Transactional
+    public void setFaceRegistered(Long userId, boolean registered) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setFaceRegistered(registered);
+            userRepository.save(user);
+        });
+    }
+
+    /**
+     * Login using face recognition instead of password.
+     * Performs the same ban/lock checks as password login.
+     */
+    public User faceLogin(String email, String base64Image, FaceRecognitionService faceService) {
+        // 1. Find user by email
+        Optional<User> optUser = userRepository.findByEmail(email);
+        if (optUser.isEmpty()) {
+            throw new RuntimeException("Invalid email or face not recognized.");
+        }
+
+        User u = optUser.get();
+
+        // 2. Check if account is locked
+        if (u.getLockedUntil() != null && u.getLockedUntil().isAfter(LocalDateTime.now())) {
+            throw new AccountLockedException(
+                    "Account locked for 5 minutes due to too many failed attempts.",
+                    u.getLockedUntil(),
+                    u.getFailedAttempts() != null ? u.getFailedAttempts() : MAX_FAILED_ATTEMPTS);
+        }
+
+        // Auto-unlock if lock period has expired
+        if (u.getLockedUntil() != null && u.getLockedUntil().isBefore(LocalDateTime.now())) {
+            u.setLockedUntil(null);
+            u.setFailedAttempts(0);
+            userRepository.save(u);
+        }
+
+        // 3. Check if user is banned
+        if (Boolean.TRUE.equals(u.getBanned())) {
+            if (u.getBanExpiresAt() != null && !u.getBanExpiresAt().isEmpty()) {
+                try {
+                    Instant expiresAt = Instant.parse(u.getBanExpiresAt());
+                    if (expiresAt.isBefore(Instant.now())) {
+                        u.setBanned(false);
+                        u.setBanReason(null);
+                        u.setBanDuration(null);
+                        u.setBanExpiresAt(null);
+                        userRepository.save(u);
+                    } else {
+                        throw new UserBannedException(
+                                "Your account is banned.",
+                                u.getBanReason(),
+                                u.getBanDuration(),
+                                u.getBanExpiresAt());
+                    }
+                } catch (UserBannedException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new UserBannedException(
+                            "Your account is banned.",
+                            u.getBanReason(),
+                            u.getBanDuration(),
+                            u.getBanExpiresAt());
+                }
+            } else {
+                throw new UserBannedException(
+                        "Your account is banned.",
+                        u.getBanReason(),
+                        u.getBanDuration(),
+                        u.getBanExpiresAt());
+            }
+        }
+
+        // 4. Check if user has a registered face
+        if (!Boolean.TRUE.equals(u.getFaceRegistered())) {
+            throw new RuntimeException("Face recognition is not set up for this account. Please use password login.");
+        }
+
+        // 5. Verify face against stored embedding
+        Map<String, Object> result = faceService.verifyFace(u.getId(), base64Image);
+
+        if (result.containsKey("error")) {
+            String error = result.get("error").toString();
+            // Count as a failed attempt if face not detected or service error
+            int attempts = (u.getFailedAttempts() != null ? u.getFailedAttempts() : 0) + 1;
+            u.setFailedAttempts(attempts);
+
+            if (attempts >= MAX_FAILED_ATTEMPTS) {
+                LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(LOCK_DURATION_MINUTES);
+                u.setLockedUntil(lockUntil);
+                userRepository.save(u);
+                try {
+                    emailService.sendAccountLockedEmail(u.getEmail(), u.getName());
+                } catch (Exception ignored) {}
+                throw new AccountLockedException(
+                        "Account locked for 5 minutes due to too many failed attempts.",
+                        lockUntil, attempts);
+            }
+            userRepository.save(u);
+            throw new RuntimeException("Face verification failed: " + error);
+        }
+
+        Boolean verified = (Boolean) result.get("verified");
+        if (!Boolean.TRUE.equals(verified)) {
+            // Face did not match — count as failed attempt
+            int attempts = (u.getFailedAttempts() != null ? u.getFailedAttempts() : 0) + 1;
+            u.setFailedAttempts(attempts);
+
+            if (attempts >= MAX_FAILED_ATTEMPTS) {
+                LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(LOCK_DURATION_MINUTES);
+                u.setLockedUntil(lockUntil);
+                userRepository.save(u);
+                try {
+                    emailService.sendAccountLockedEmail(u.getEmail(), u.getName());
+                } catch (Exception ignored) {}
+                throw new AccountLockedException(
+                        "Account locked for 5 minutes due to too many failed attempts.",
+                        lockUntil, attempts);
+            }
+            userRepository.save(u);
+            int remaining = MAX_FAILED_ATTEMPTS - attempts;
+            throw new RuntimeException(
+                    "Face not recognized. " + remaining + " attempt" + (remaining > 1 ? "s" : "") + " remaining.");
+        }
+
+        // 6. Successful face login — reset failed attempts
+        if (u.getFailedAttempts() != null && u.getFailedAttempts() > 0) {
+            u.setFailedAttempts(0);
+            u.setLockedUntil(null);
+        }
+        userRepository.save(u);
+        return u;
     }
 }

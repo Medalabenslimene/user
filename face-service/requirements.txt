@@ -3,3 +3,5 @@ deepface
 tf-keras
 flask-cors
 numpy
+Pillow
+mtcnn

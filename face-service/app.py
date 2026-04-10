@@ -9,6 +9,7 @@ Endpoints:
   POST /face/verify/<userId>    — Verify a live photo against stored face
   GET  /face/status/<userId>    — Check registration status
   DELETE /face/delete/<userId>  — Remove stored face data
+  GET  /health                  — Health check
 """
 
 import os
@@ -29,13 +30,14 @@ CORS(app)
 FACE_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "face_data")
 os.makedirs(FACE_DATA_DIR, exist_ok=True)
 
-MODEL_NAME = "ArcFace"          # Best accuracy among DeepFace backends
-DETECTOR_BACKEND = "opencv"     # Fast, no extra deps
-DISTANCE_METRIC = "cosine"      # Cosine similarity for ArcFace embeddings
-VERIFY_THRESHOLD = 0.68         # ArcFace cosine threshold (lower = stricter)
+MODEL_NAME = "ArcFace"
+DETECTOR_BACKENDS = ["opencv", "ssd", "mtcnn"]  # Fallback chain
+DISTANCE_METRIC = "cosine"
+VERIFY_THRESHOLD = 0.68
 
 # Lazy-load DeepFace to speed up startup
 _deepface = None
+
 
 def get_deepface():
     """Lazy-import DeepFace so startup is fast and model downloads
@@ -47,7 +49,6 @@ def get_deepface():
         # Warm up the model by running a dummy representation
         print("[FaceService] Warming up ArcFace model...")
         try:
-            # Create a tiny dummy image to force model load
             dummy = np.zeros((64, 64, 3), dtype=np.uint8)
             tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
             from PIL import Image
@@ -56,34 +57,38 @@ def get_deepface():
                 _deepface.represent(img_path=tmp.name, model_name=MODEL_NAME,
                                     detector_backend="skip", enforce_detection=False)
             except Exception:
-                pass  # It's fine if dummy fails; model is loaded
+                pass
             finally:
                 os.unlink(tmp.name)
         except ImportError:
-            # PIL not available — model will load on first real request
             pass
         print("[FaceService] ArcFace model ready.")
     return _deepface
 
 
 def _embedding_path(user_id: str) -> str:
-    """Path to the stored embedding file for a user."""
     return os.path.join(FACE_DATA_DIR, f"{user_id}.npy")
 
 
 def _meta_path(user_id: str) -> str:
-    """Path to metadata JSON for a user."""
     return os.path.join(FACE_DATA_DIR, f"{user_id}_meta.json")
 
 
 def _decode_base64_image(data: str) -> str:
     """Decode a base64 image string and save to a temp file.
     Returns the temp file path."""
-    # Strip data URI prefix if present  (e.g. "data:image/png;base64,...")
     if "," in data:
         data = data.split(",", 1)[1]
 
-    img_bytes = base64.b64decode(data)
+    # Validate base64 data
+    try:
+        img_bytes = base64.b64decode(data)
+    except Exception:
+        raise ValueError("Invalid base64 image data.")
+
+    if len(img_bytes) < 100:
+        raise ValueError("Image data is too small — likely not a valid image.")
+
     tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
     tmp.write(img_bytes)
     tmp.close()
@@ -91,18 +96,46 @@ def _decode_base64_image(data: str) -> str:
 
 
 def _get_embedding(img_path: str):
-    """Extract face embedding from image. Returns numpy array or raises."""
+    """Extract face embedding from image using fallback detector backends.
+    Returns numpy array or raises ValueError."""
     DeepFace = get_deepface()
-    representations = DeepFace.represent(
-        img_path=img_path,
-        model_name=MODEL_NAME,
-        detector_backend=DETECTOR_BACKEND,
-        enforce_detection=True
+
+    last_error = None
+    for backend in DETECTOR_BACKENDS:
+        try:
+            representations = DeepFace.represent(
+                img_path=img_path,
+                model_name=MODEL_NAME,
+                detector_backend=backend,
+                enforce_detection=True
+            )
+            if representations and len(representations) > 0:
+                embedding = np.array(representations[0]["embedding"])
+                print(f"[FaceService] Face detected using '{backend}' backend.")
+                return embedding
+        except Exception as e:
+            last_error = e
+            print(f"[FaceService] Backend '{backend}' failed: {e}")
+            continue
+
+    # All detector backends failed — try with enforce_detection=False as last resort
+    try:
+        representations = DeepFace.represent(
+            img_path=img_path,
+            model_name=MODEL_NAME,
+            detector_backend="skip",
+            enforce_detection=False
+        )
+        if representations and len(representations) > 0:
+            print("[FaceService] Using 'skip' backend (no face detection).")
+            return np.array(representations[0]["embedding"])
+    except Exception as e:
+        last_error = e
+
+    raise ValueError(
+        f"No face detected in the image. Please ensure your face is clearly visible, "
+        f"well-lit, and centered in the frame. (Detail: {last_error})"
     )
-    if not representations:
-        raise ValueError("No face detected in the image.")
-    # Use the first (largest) face
-    return np.array(representations[0]["embedding"])
 
 
 # ── Routes ─────────────────────────────────────────────────────
@@ -121,7 +154,16 @@ def register_face(user_id: str):
         try:
             embedding = _get_embedding(img_path)
         finally:
-            os.unlink(img_path)  # cleanup temp file
+            if os.path.exists(img_path):
+                os.unlink(img_path)
+
+        # Validate embedding quality (non-zero, reasonable magnitude)
+        if np.all(embedding == 0):
+            return jsonify({"error": "Could not extract a valid face embedding. Please try a clearer photo."}), 400
+
+        norm = np.linalg.norm(embedding)
+        if norm < 0.1:
+            return jsonify({"error": "Face embedding quality is too low. Please try a better photo."}), 400
 
         # Save embedding
         np.save(_embedding_path(user_id), embedding)
@@ -132,14 +174,15 @@ def register_face(user_id: str):
             "userId": user_id,
             "registeredAt": datetime.datetime.utcnow().isoformat(),
             "model": MODEL_NAME,
-            "embeddingSize": len(embedding)
+            "embeddingSize": len(embedding),
+            "embeddingNorm": float(norm)
         }
         with open(_meta_path(user_id), "w") as f:
             json.dump(meta, f)
 
         return jsonify({
             "success": True,
-            "message": f"Face registered for user {user_id}.",
+            "message": f"Face registered successfully for user {user_id}.",
             "embeddingSize": len(embedding)
         })
 
@@ -168,7 +211,8 @@ def verify_face(user_id: str):
         try:
             live_embedding = _get_embedding(img_path)
         finally:
-            os.unlink(img_path)
+            if os.path.exists(img_path):
+                os.unlink(img_path)
 
         stored_embedding = np.load(emb_path)
 
@@ -176,8 +220,14 @@ def verify_face(user_id: str):
         dot = np.dot(stored_embedding, live_embedding)
         norm_a = np.linalg.norm(stored_embedding)
         norm_b = np.linalg.norm(live_embedding)
-        cosine_distance = 1 - (dot / (norm_a * norm_b))
 
+        if norm_a == 0 or norm_b == 0:
+            return jsonify({
+                "error": "Invalid embedding detected. Please re-register your face.",
+                "verified": False
+            }), 400
+
+        cosine_distance = 1 - (dot / (norm_a * norm_b))
         verified = cosine_distance <= VERIFY_THRESHOLD
         confidence = round(max(0, 1 - cosine_distance), 4)
 
