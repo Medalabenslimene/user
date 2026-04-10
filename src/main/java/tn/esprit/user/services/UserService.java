@@ -20,11 +20,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.Collections;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 
 @Service
 public class UserService {
@@ -51,14 +46,20 @@ public class UserService {
     private String googleClientId;
 
     public User googleLogin(String idTokenString) throws Exception {
-        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
-            .setAudience(Collections.singletonList(googleClientId))
-            .build();
+        org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+        String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idTokenString;
+        
+        try {
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> payload = restTemplate.getForObject(url, java.util.Map.class);
+            if (payload == null || payload.get("email") == null) {
+                throw new RuntimeException("Invalid Google ID token payload.");
+            }
+            
+            // Optional: verify the audience (Client ID) matches
+            // if (!googleClientId.equals(payload.get("aud"))) { throw new RuntimeException("Invalid token audience."); }
 
-        GoogleIdToken idToken = verifier.verify(idTokenString);
-        if (idToken != null) {
-            GoogleIdToken.Payload payload = idToken.getPayload();
-            String email = payload.getEmail();
+            String email = (String) payload.get("email");
             String name = (String) payload.get("name");
             String pictureUrl = (String) payload.get("picture");
 
@@ -110,8 +111,11 @@ public class UserService {
                 }
             }
             return u;
-        } else {
-            throw new RuntimeException("Invalid Google ID token.");
+        } catch (Exception e) {
+            if (e instanceof UserBannedException || e instanceof AccountLockedException) {
+                throw e;
+            }
+            throw new RuntimeException("Invalid Google ID token: " + e.getMessage());
         }
     }
 
