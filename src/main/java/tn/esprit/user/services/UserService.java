@@ -20,6 +20,11 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collections;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 
 @Service
 public class UserService {
@@ -41,6 +46,74 @@ public class UserService {
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
+
+    @Value("${google.client.id:123823672043-vs1f3hv4qts4j48rq0sst9rh46i8v3uf.apps.googleusercontent.com}")
+    private String googleClientId;
+
+    public User googleLogin(String idTokenString) throws Exception {
+        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+            .setAudience(Collections.singletonList(googleClientId))
+            .build();
+
+        GoogleIdToken idToken = verifier.verify(idTokenString);
+        if (idToken != null) {
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+            String pictureUrl = (String) payload.get("picture");
+
+            Optional<User> optUser = userRepository.findByEmail(email);
+            User u;
+            if (optUser.isEmpty()) {
+                u = new User();
+                u.setEmail(email);
+                u.setName(name);
+                u.setUsername(email.split("@")[0]);
+                u.setPwd(passwordService.hashPassword(java.util.UUID.randomUUID().toString()));
+                u.setEmailVerified(true);
+                u.setAvatar(pictureUrl);
+                u.setRole(Role.ETUDIANT);
+                u = userRepository.save(u);
+            } else {
+                u = optUser.get();
+                // Check if banned
+                if (Boolean.TRUE.equals(u.getBanned())) {
+                    if (u.getBanExpiresAt() != null && !u.getBanExpiresAt().isEmpty()) {
+                        try {
+                            Instant expiresAt = Instant.parse(u.getBanExpiresAt());
+                            if (expiresAt.isBefore(Instant.now())) {
+                                u.setBanned(false);
+                                u.setBanReason(null);
+                                u.setBanDuration(null);
+                                u.setBanExpiresAt(null);
+                                userRepository.save(u);
+                            } else {
+                                throw new UserBannedException("Your account is banned.", u.getBanReason(), u.getBanDuration(), u.getBanExpiresAt());
+                            }
+                        } catch (UserBannedException e) {
+                            throw e;
+                        } catch (Exception e) {
+                            throw new UserBannedException("Your account is banned.", u.getBanReason(), u.getBanDuration(), u.getBanExpiresAt());
+                        }
+                    } else {
+                        throw new UserBannedException("Your account is banned.", u.getBanReason(), u.getBanDuration(), u.getBanExpiresAt());
+                    }
+                }
+                
+                // Check if account is locked
+                if (u.getLockedUntil() != null && u.getLockedUntil().isAfter(LocalDateTime.now())) {
+                    throw new AccountLockedException("Account locked for 5 minutes due to too many failed attempts.", u.getLockedUntil(), u.getFailedAttempts() != null ? u.getFailedAttempts() : 3);
+                } else if (u.getLockedUntil() != null && u.getLockedUntil().isBefore(LocalDateTime.now())) {
+                    u.setLockedUntil(null);
+                    u.setFailedAttempts(0);
+                    userRepository.save(u);
+                }
+            }
+            return u;
+        } else {
+            throw new RuntimeException("Invalid Google ID token.");
+        }
+    }
 
     public User login(String email, String pwd) {
         // 1. Find user by email only

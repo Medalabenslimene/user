@@ -63,6 +63,32 @@ public class UserController {
         }
     }
 
+    @PostMapping("/google-login")
+    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> request) {
+        try {
+            String idTokenString = request.get("idToken");
+            if (idTokenString == null || idTokenString.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "ID token is required."));
+            }
+            User user = userService.googleLogin(idTokenString);
+            return ResponseEntity.ok(user);
+        } catch (UserBannedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.toResponseBody());
+        } catch (AccountLockedException e) {
+            return ResponseEntity.status(423).body(Map.of(
+                "type", "ACCOUNT_LOCKED",
+                "message", "Too many failed attempts. Your account is locked for 5 minutes.",
+                "minutesLeft", 5,
+                "lockedUntil", e.getLockedUntil() != null ? e.getLockedUntil().toString() : ""
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Google login failed: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/sign-up")
     public ResponseEntity<?> signUp(@RequestBody User user) {
         try {
