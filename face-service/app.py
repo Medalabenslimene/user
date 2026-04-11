@@ -284,6 +284,75 @@ def delete_face(user_id: str):
         return jsonify({"error": f"No face data found for user {user_id}."}), 404
 
 
+@app.route("/face/identify", methods=["POST"])
+def identify_face():
+    """Identify a user by scanning all stored face embeddings.
+
+    Body: { "image": "<base64>" }
+    Returns: { "userId": "<id>", "confidence": 0.xx, "distance": 0.xx }
+    or       { "error": "..." } if no match found.
+    """
+    try:
+        body = request.get_json(force=True)
+        image_data = body.get("image")
+        if not image_data:
+            return jsonify({"error": "Missing 'image' field (base64)."}), 400
+
+        img_path = _decode_base64_image(image_data)
+
+        try:
+            live_embedding = _get_embedding(img_path)
+        finally:
+            if os.path.exists(img_path):
+                os.unlink(img_path)
+
+        # Scan all stored embeddings
+        best_user_id = None
+        best_distance = float("inf")
+
+        for filename in os.listdir(FACE_DATA_DIR):
+            if not filename.endswith(".npy"):
+                continue
+            user_id = filename[:-4]  # strip ".npy"
+            emb_path = os.path.join(FACE_DATA_DIR, filename)
+
+            try:
+                stored_embedding = np.load(emb_path)
+            except Exception:
+                continue
+
+            norm_a = np.linalg.norm(stored_embedding)
+            norm_b = np.linalg.norm(live_embedding)
+            if norm_a == 0 or norm_b == 0:
+                continue
+
+            dot = np.dot(stored_embedding, live_embedding)
+            cosine_distance = 1 - (dot / (norm_a * norm_b))
+
+            if cosine_distance < best_distance:
+                best_distance = cosine_distance
+                best_user_id = user_id
+
+        if best_user_id is None or best_distance > VERIFY_THRESHOLD:
+            return jsonify({
+                "error": "No matching face found. Please use password login or register your face."
+            }), 404
+
+        confidence = round(max(0, 1 - best_distance), 4)
+        print(f"[FaceService] Identified user {best_user_id} (distance={best_distance:.4f})")
+        return jsonify({
+            "userId": best_user_id,
+            "confidence": confidence,
+            "distance": round(float(best_distance), 4)
+        })
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": f"Identification failed: {str(e)}"}), 500
+
+
 @app.route("/health", methods=["GET"])
 def health():
     """Health check endpoint."""

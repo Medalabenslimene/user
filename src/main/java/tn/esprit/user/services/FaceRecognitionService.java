@@ -103,6 +103,28 @@ public class FaceRecognitionService {
     }
 
     /**
+     * Identify a user from a live photo by scanning all stored face embeddings.
+     * Returns a map with "userId" (String) on success, or "error" on failure.
+     */
+    public Map<String, Object> identifyFace(String base64Image) {
+        String url = FACE_SERVICE_URL + "/face/identify";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(
+                Map.of("image", base64Image), headers);
+
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, MAP_TYPE);
+            return response.getBody();
+        } catch (HttpClientErrorException e) {
+            return parseErrorResponse(e);
+        } catch (Exception e) {
+            return Map.of("error", "Face service unavailable: " + e.getMessage());
+        }
+    }
+
+    /**
      * Check if the face recognition microservice is running.
      */
     public boolean isServiceHealthy() {

@@ -321,6 +321,65 @@ public class UserService {
     }
 
     /**
+     * Complete a face login after the Python service has already identified the user.
+     * Only performs ban/lock checks — no face verification (already done by the caller).
+     */
+    public User faceLoginById(Long userId) {
+        User u = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found."));
+
+        // Check if account is locked
+        if (u.getLockedUntil() != null && u.getLockedUntil().isAfter(LocalDateTime.now())) {
+            throw new AccountLockedException(
+                    "Account locked for 5 minutes due to too many failed attempts.",
+                    u.getLockedUntil(),
+                    u.getFailedAttempts() != null ? u.getFailedAttempts() : MAX_FAILED_ATTEMPTS);
+        }
+
+        // Auto-unlock if lock period has expired
+        if (u.getLockedUntil() != null && u.getLockedUntil().isBefore(LocalDateTime.now())) {
+            u.setLockedUntil(null);
+            u.setFailedAttempts(0);
+            userRepository.save(u);
+        }
+
+        // Check if user is banned
+        if (Boolean.TRUE.equals(u.getBanned())) {
+            if (u.getBanExpiresAt() != null && !u.getBanExpiresAt().isEmpty()) {
+                try {
+                    Instant expiresAt = Instant.parse(u.getBanExpiresAt());
+                    if (expiresAt.isBefore(Instant.now())) {
+                        u.setBanned(false);
+                        u.setBanReason(null);
+                        u.setBanDuration(null);
+                        u.setBanExpiresAt(null);
+                        userRepository.save(u);
+                    } else {
+                        throw new UserBannedException("Your account is banned.",
+                                u.getBanReason(), u.getBanDuration(), u.getBanExpiresAt());
+                    }
+                } catch (UserBannedException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new UserBannedException("Your account is banned.",
+                            u.getBanReason(), u.getBanDuration(), u.getBanExpiresAt());
+                }
+            } else {
+                throw new UserBannedException("Your account is banned.",
+                        u.getBanReason(), u.getBanDuration(), u.getBanExpiresAt());
+            }
+        }
+
+        // Reset failed attempts on successful face login
+        if (u.getFailedAttempts() != null && u.getFailedAttempts() > 0) {
+            u.setFailedAttempts(0);
+            u.setLockedUntil(null);
+        }
+        userRepository.save(u);
+        return u;
+    }
+
+    /**
      * Login using face recognition instead of password.
      * Performs the same ban/lock checks as password login.
      */

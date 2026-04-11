@@ -94,6 +94,55 @@ public class FaceController {
     }
 
     /**
+     * Login using face recognition without providing an email.
+     * The Python service scans all stored embeddings to identify the user.
+     * Body: { "image": "base64..." }
+     */
+    @PostMapping("/identify-login")
+    public ResponseEntity<?> faceIdentifyLogin(@RequestBody Map<String, String> body) {
+        String image = body.get("image");
+        if (image == null || image.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Face image is required."));
+        }
+
+        // Ask Python service to find the matching user
+        Map<String, Object> identifyResult = faceRecognitionService.identifyFace(image);
+        if (identifyResult.containsKey("error")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", identifyResult.get("error").toString()));
+        }
+
+        Object rawUserId = identifyResult.get("userId");
+        if (rawUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Face not recognized. Please use password login."));
+        }
+
+        Long userId;
+        try {
+            userId = Long.parseLong(rawUserId.toString());
+        } catch (NumberFormatException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Invalid user ID returned by face service."));
+        }
+
+        try {
+            User user = userService.faceLoginById(userId);
+            return ResponseEntity.ok(user);
+        } catch (UserBannedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.toResponseBody());
+        } catch (AccountLockedException e) {
+            return ResponseEntity.status(423).body(Map.of(
+                    "type", "ACCOUNT_LOCKED",
+                    "message", "Too many failed attempts. Your account is locked for 5 minutes.",
+                    "minutesLeft", 5,
+                    "lockedUntil", e.getLockedUntil() != null ? e.getLockedUntil().toString() : ""));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
      * Check if a user has a registered face.
      * Can be called by email (for login page) or by userId.
      */
