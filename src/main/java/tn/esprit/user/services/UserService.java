@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,6 +43,9 @@ public class UserService {
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
+
+    @Value("${app.faces.upload.dir:/var/www/faces}")
+    private String facesUploadDir;
 
     public User login(String email, String pwd) {
         // 1. Find user by email only
@@ -210,6 +214,7 @@ public class UserService {
             existingUser.setBanDuration(updatedUser.getBanDuration());
             existingUser.setBanExpiresAt(updatedUser.getBanExpiresAt());
             existingUser.setFaceRegistered(updatedUser.getFaceRegistered());
+            existingUser.setFaceImageUrl(updatedUser.getFaceImageUrl());
             return userRepository.save(existingUser);
         });
     }
@@ -312,12 +317,59 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    /**
+     * Decode a base64 face image and persist it to the faces directory.
+     * The file is named {userId}.jpg — re-registering overwrites the old image.
+     * Returns the public URL of the saved image.
+     */
+    public String saveFaceImage(Long userId, String base64Image) throws IOException {
+        // Strip the data-URI header if present (e.g. "data:image/jpeg;base64,")
+        String data = base64Image.contains(",")
+                ? base64Image.split(",", 2)[1]
+                : base64Image;
+
+        byte[] imageBytes = Base64.getDecoder().decode(data);
+
+        Path uploadPath = Paths.get(facesUploadDir);
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
+
+        String fileName = userId + ".jpg";
+        Path filePath = uploadPath.resolve(fileName);
+        Files.write(filePath, imageBytes);
+
+        String imageUrl = frontendUrl + "/api/users/faces/" + fileName;
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setFaceImageUrl(imageUrl);
+            userRepository.save(user);
+        });
+        return imageUrl;
+    }
+
     @Transactional
     public void setFaceRegistered(Long userId, boolean registered) {
         userRepository.findById(userId).ifPresent(user -> {
             user.setFaceRegistered(registered);
             userRepository.save(user);
         });
+    }
+
+    @Transactional
+    public void clearFaceImageUrl(Long userId) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setFaceImageUrl(null);
+            userRepository.save(user);
+        });
+    }
+
+    public void deleteFaceImageFile(Long userId) {
+        try {
+            Path filePath = Paths.get(facesUploadDir).resolve(userId + ".jpg");
+            Files.deleteIfExists(filePath);
+        } catch (IOException ignored) {
+            // Non-fatal — embedding deletion already succeeded
+        }
     }
 
     /**

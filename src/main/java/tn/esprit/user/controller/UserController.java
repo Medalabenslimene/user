@@ -1,6 +1,7 @@
 package tn.esprit.user.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,9 @@ public class UserController {
 
     @Autowired
     private CaptchaService captchaService;
+
+    @Value("${app.faces.upload.dir:/var/www/faces}")
+    private String facesUploadDir;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, Object> loginRequest) {
@@ -168,6 +172,29 @@ public class UserController {
                     contentType = "image/gif";
                 else if (filename.endsWith(".webp"))
                     contentType = "image/webp";
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .body(resource);
+            }
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/faces/{filename:.+}")
+    public ResponseEntity<Resource> getFaceImage(@PathVariable String filename) {
+        try {
+            Path filePath = Paths.get(facesUploadDir).resolve(filename).normalize();
+            // Prevent path traversal
+            if (!filePath.startsWith(Paths.get(facesUploadDir).normalize())) {
+                return ResponseEntity.badRequest().build();
+            }
+            Resource resource = new UrlResource(filePath.toUri());
+            if (resource.exists() && resource.isReadable()) {
+                String contentType = filename.endsWith(".png") ? "image/png"
+                        : filename.endsWith(".webp") ? "image/webp"
+                        : "image/jpeg";
                 return ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(contentType))
                         .body(resource);

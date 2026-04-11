@@ -359,8 +359,7 @@ def health():
     return jsonify({"status": "ok", "model": MODEL_NAME})
 
 
-# ── Entry Point ────────────────────────────────────────────────
-
+# ── Entry Point ────────────────────────────────────────────────, 
 if __name__ == "__main__":
     print("=" * 50)
     print("  MinoLingo Face Recognition Service")

@@ -10,6 +10,7 @@ import tn.esprit.user.exception.UserBannedException;
 import tn.esprit.user.services.FaceRecognitionService;
 import tn.esprit.user.services.UserService;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -47,6 +48,16 @@ public class FaceController {
                     .body(Map.of("error", "User not found."));
         }
 
+        // Save the face image to /var/www/faces/{userId}.jpg and store the URL on the user
+        String faceImageUrl = null;
+        try {
+            faceImageUrl = userService.saveFaceImage(userId, image);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to save face image: " + e.getMessage()));
+        }
+
+        // Extract the face embedding and store it in the Python service
         Map<String, Object> result = faceRecognitionService.registerFace(userId, image);
         if (result.containsKey("error")) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(result);
@@ -57,6 +68,7 @@ public class FaceController {
 
         Map<String, Object> response = new HashMap<>(result);
         response.put("faceRegistered", true);
+        response.put("faceImageUrl", faceImageUrl);
         return ResponseEntity.ok(response);
     }
 
@@ -90,7 +102,402 @@ public class FaceController {
                     "lockedUntil", e.getLockedUntil() != null ? e.getLockedUntil().toString() : ""));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
-        }
+        }requests.js:1  POST https://minolingo.online/api/users/face/identify-login 401 (Unauthorized)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ 200.js:1
+(anonymous) @ _module-chunk.mjs:1206
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ finalize.js:5
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+doInnerSub @ mergeInternals.js:19
+outerNext @ mergeInternals.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+mergeInternals @ mergeInternals.js:53
+(anonymous) @ mergeMap.js:14
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ filter.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ map.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ catchError.js:9
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+submitFaceLogin @ login.component.ts:319
+onFaceCapture @ login.component.ts:305
+LoginComponent_Conditional_146_Template_app_face_recognition_result_10_listener @ login.component.html:389
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+ConsumerObserver2.next @ Subscriber.js:96
+Subscriber2._next @ Subscriber.js:63
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ Subject.js:41
+errorContext @ errorContext.js:19
+Subject2.next @ Subject.js:31
+emit @ _untracked-chunk.mjs:2256
+submitFace @ face-recognition.component.ts:178
+FaceRecognitionComponent_Conditional_14_Conditional_4_Conditional_5_Template_button_click_0_listener @ face-recognition.component.html:123
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+(anonymous) @ _dom_renderer-chunk.mjs:566
+
+requests.js:1  POST https://minolingo.online/api/users/face/identify-login 401 (Unauthorized)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ 200.js:1
+(anonymous) @ _module-chunk.mjs:1206
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ finalize.js:5
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+doInnerSub @ mergeInternals.js:19
+outerNext @ mergeInternals.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+mergeInternals @ mergeInternals.js:53
+(anonymous) @ mergeMap.js:14
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ filter.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ map.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ catchError.js:9
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+submitFaceLogin @ login.component.ts:319
+onFaceCapture @ login.component.ts:305
+LoginComponent_Conditional_146_Template_app_face_recognition_result_10_listener @ login.component.html:389
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+ConsumerObserver2.next @ Subscriber.js:96
+Subscriber2._next @ Subscriber.js:63
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ Subject.js:41
+errorContext @ errorContext.js:19
+Subject2.next @ Subject.js:31
+emit @ _untracked-chunk.mjs:2256
+submitFace @ face-recognition.component.ts:178
+FaceRecognitionComponent_Conditional_14_Conditional_4_Conditional_5_Template_button_click_0_listener @ face-recognition.component.html:123
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+(anonymous) @ _dom_renderer-chunk.mjs:566
+
+requests.js:1  POST https://minolingo.online/api/users/face/identify-login 401 (Unauthorized)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ 200.js:1
+(anonymous) @ _module-chunk.mjs:1206
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ finalize.js:5
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+doInnerSub @ mergeInternals.js:19
+outerNext @ mergeInternals.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+mergeInternals @ mergeInternals.js:53
+(anonymous) @ mergeMap.js:14
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ filter.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ map.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ catchError.js:9
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+submitFaceLogin @ login.component.ts:319
+onFaceCapture @ login.component.ts:305
+LoginComponent_Conditional_146_Template_app_face_recognition_result_10_listener @ login.component.html:389
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+ConsumerObserver2.next @ Subscriber.js:96
+Subscriber2._next @ Subscriber.js:63
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ Subject.js:41
+errorContext @ errorContext.js:19
+Subject2.next @ Subject.js:31
+emit @ _untracked-chunk.mjs:2256
+submitFace @ face-recognition.component.ts:178
+FaceRecognitionComponent_Conditional_14_Conditional_4_Conditional_5_Template_button_click_0_listener @ face-recognition.component.html:123
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+(anonymous) @ _dom_renderer-chunk.mjs:566
+
+requests.js:1  POST https://minolingo.online/api/users/face/identify-login 401 (Unauthorized)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ 200.js:1
+(anonymous) @ _module-chunk.mjs:1206
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ finalize.js:5
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+doInnerSub @ mergeInternals.js:19
+outerNext @ mergeInternals.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+mergeInternals @ mergeInternals.js:53
+(anonymous) @ mergeMap.js:14
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ filter.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ map.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ catchError.js:9
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+submitFaceLogin @ login.component.ts:319
+onFaceCapture @ login.component.ts:305
+LoginComponent_Conditional_146_Template_app_face_recognition_result_10_listener @ login.component.html:389
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+ConsumerObserver2.next @ Subscriber.js:96
+Subscriber2._next @ Subscriber.js:63
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ Subject.js:41
+errorContext @ errorContext.js:19
+Subject2.next @ Subject.js:31
+emit @ _untracked-chunk.mjs:2256
+submitFace @ face-recognition.component.ts:178
+FaceRecognitionComponent_Conditional_14_Conditional_4_Conditional_5_Template_button_click_0_listener @ face-recognition.component.html:123
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+(anonymous) @ _dom_renderer-chunk.mjs:566
+
+requests.js:1  POST https://minolingo.online/api/users/face/identify-login 401 (Unauthorized)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ 200.js:1
+(anonymous) @ _module-chunk.mjs:1206
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ finalize.js:5
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+doInnerSub @ mergeInternals.js:19
+outerNext @ mergeInternals.js:14
+OperatorSubscriber2._this._next @ OperatorSubscriber.js:15
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ innerFrom.js:51
+Observable2._trySubscribe @ Observable.js:38
+(anonymous) @ Observable.js:32
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+mergeInternals @ mergeInternals.js:53
+(anonymous) @ mergeMap.js:14
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ filter.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ map.js:6
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ switchMap.js:10
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+(anonymous) @ catchError.js:9
+(anonymous) @ lift.js:10
+(anonymous) @ Observable.js:27
+errorContext @ errorContext.js:19
+Observable2.subscribe @ Observable.js:23
+submitFaceLogin @ login.component.ts:319
+onFaceCapture @ login.component.ts:305
+LoginComponent_Conditional_146_Template_app_face_recognition_result_10_listener @ login.component.html:389
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+ConsumerObserver2.next @ Subscriber.js:96
+Subscriber2._next @ Subscriber.js:63
+Subscriber2.next @ Subscriber.js:34
+(anonymous) @ Subject.js:41
+errorContext @ errorContext.js:19
+Subject2.next @ Subject.js:31
+emit @ _untracked-chunk.mjs:2256
+submitFace @ face-recognition.component.ts:178
+FaceRecognitionComponent_Conditional_14_Conditional_4_Conditional_5_Template_button_click_0_listener @ face-recognition.component.html:123
+executeListenerWithErrorHandling @ _debug_node-chunk.mjs:7973
+wrapListenerIn_markDirtyAndPreventDefault @ _debug_node-chunk.mjs:7960
+(anonymous) @ _dom_renderer-chunk.mjs:566
+
+
     }
 
     /**
@@ -208,8 +615,13 @@ public class FaceController {
             int status = result.get("error").toString().contains("No face data") ? 404 : 500;
             return ResponseEntity.status(status).body(result);
         }
-        // Update user record
+        // Update user record — clear both the flag and the stored image URL
         userService.setFaceRegistered(userId, false);
+        userService.clearFaceImageUrl(userId);
+
+        // Also delete the physical image file from /var/www/faces/
+        userService.deleteFaceImageFile(userId);
+
         return ResponseEntity.ok(result);
     }
 

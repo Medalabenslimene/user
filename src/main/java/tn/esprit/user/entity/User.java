@@ -117,6 +117,9 @@ public class User {
 @Column(name = "faceregistered")
 private Boolean faceRegistered = false;
 
+@Column(name = "faceimageurl")
+private String faceImageUrl;
+
 // -------- LOGIN ATTEMPTS fields --------
 @Column(name = "failedattempts")
 private Integer failedAttempts = 0;
