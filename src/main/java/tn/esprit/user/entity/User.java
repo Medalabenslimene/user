@@ -120,13 +120,6 @@ private Boolean faceRegistered = false;
 @Column(name = "faceimageurl")
 private String faceImageUrl;
 
-// -------- ACTIVITY TRACKING fields --------
-@Column(name = "lastloginat")
-private LocalDateTime lastLoginAt;
-
-@Column(name = "lastavatarupdatedat")
-private LocalDateTime lastAvatarUpdatedAt;
-
 // -------- LOGIN ATTEMPTS fields --------
 @Column(name = "failedattempts")
 private Integer failedAttempts = 0;

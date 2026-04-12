@@ -161,7 +161,6 @@ public class UserService {
             u.setFailedAttempts(0);
             u.setLockedUntil(null);
         }
-        u.setLastLoginAt(LocalDateTime.now());
         userRepository.save(u);
         return u;
     }
@@ -269,7 +268,6 @@ public class UserService {
         String avatarUrl = frontendUrl + "/api/users/avatars/" + fileName;
         User user = optUser.get();
         user.setAvatar(avatarUrl);
-        user.setLastAvatarUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
         return avatarUrl;
     }
@@ -429,7 +427,6 @@ public class UserService {
             u.setFailedAttempts(0);
             u.setLockedUntil(null);
         }
-        u.setLastLoginAt(LocalDateTime.now());
         userRepository.save(u);
         return u;
     }
@@ -555,7 +552,6 @@ public class UserService {
             u.setFailedAttempts(0);
             u.setLockedUntil(null);
         }
-        u.setLastLoginAt(LocalDateTime.now());
         userRepository.save(u);
         return u;
     }
