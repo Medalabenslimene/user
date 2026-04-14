@@ -9,7 +9,7 @@ import tn.esprit.user.services.LoginLogService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admin/login-logs")
+@RequestMapping("/api/users/login-logs")
 public class LoginLogController {
 
     @Autowired
