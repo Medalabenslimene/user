@@ -33,7 +33,15 @@ os.makedirs(FACE_DATA_DIR, exist_ok=True)
 MODEL_NAME = "ArcFace"
 DETECTOR_BACKENDS = ["opencv", "ssd", "mtcnn"]  # Fallback chain
 DISTANCE_METRIC = "cosine"
-VERIFY_THRESHOLD = 0.68
+# Stricter threshold for login auth. DeepFace default 0.68 is tuned for
+# general recognition benchmarks and is too permissive for authentication —
+# it lets look-alikes (and sometimes unrelated people under poor lighting)
+# pass as the same person. 0.45 keeps same-person matches reliable while
+# rejecting different people.
+VERIFY_THRESHOLD = 0.45
+# For identify (1-to-N), the best match must beat the runner-up by this
+# margin. Prevents "closest wins" when no one truly matches.
+IDENTIFY_MARGIN = 0.08
 
 # Lazy-load DeepFace to speed up startup
 _deepface = None
@@ -306,9 +314,10 @@ def identify_face():
             if os.path.exists(img_path):
                 os.unlink(img_path)
 
-        # Scan all stored embeddings
+        # Scan all stored embeddings — track best + second-best for margin check
         best_user_id = None
         best_distance = float("inf")
+        second_distance = float("inf")
 
         for filename in os.listdir(FACE_DATA_DIR):
             if not filename.endswith(".npy"):
@@ -330,12 +339,21 @@ def identify_face():
             cosine_distance = 1 - (dot / (norm_a * norm_b))
 
             if cosine_distance < best_distance:
+                second_distance = best_distance
                 best_distance = cosine_distance
                 best_user_id = user_id
+            elif cosine_distance < second_distance:
+                second_distance = cosine_distance
 
         if best_user_id is None or best_distance > VERIFY_THRESHOLD:
             return jsonify({
                 "error": "No matching face found. Please use password login or register your face."
+            }), 404
+
+        # Require clear margin vs runner-up so ambiguous faces are rejected
+        if (second_distance - best_distance) < IDENTIFY_MARGIN:
+            return jsonify({
+                "error": "Face match is ambiguous. Please use password login."
             }), 404
 
         confidence = round(max(0, 1 - best_distance), 4)

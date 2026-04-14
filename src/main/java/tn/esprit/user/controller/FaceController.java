@@ -8,7 +8,9 @@ import tn.esprit.user.entity.User;
 import tn.esprit.user.exception.AccountLockedException;
 import tn.esprit.user.exception.UserBannedException;
 import tn.esprit.user.services.FaceRecognitionService;
+import tn.esprit.user.services.LoginLogService;
 import tn.esprit.user.services.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -27,6 +29,9 @@ public class FaceController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private LoginLogService loginLogService;
 
     /**
      * Register a face during or after signup.
@@ -78,7 +83,7 @@ public class FaceController {
      * Performs all the same ban/lock checks as password login.
      */
     @PostMapping("/login")
-    public ResponseEntity<?> faceLogin(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> faceLogin(@RequestBody Map<String, String> body, HttpServletRequest request) {
         String email = body.get("email");
         String image = body.get("image");
 
@@ -91,16 +96,20 @@ public class FaceController {
 
         try {
             User user = userService.faceLogin(email, image, faceRecognitionService);
+            loginLogService.record(user, "FACE", true, request);
             return ResponseEntity.ok(user);
         } catch (UserBannedException e) {
+            userService.getUserByEmail(email).ifPresent(u -> loginLogService.record(u, "FACE", false, request));
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.toResponseBody());
         } catch (AccountLockedException e) {
+            userService.getUserByEmail(email).ifPresent(u -> loginLogService.record(u, "FACE", false, request));
             return ResponseEntity.status(423).body(Map.of(
                     "type", "ACCOUNT_LOCKED",
                     "message", "Too many failed attempts. Your account is locked for 5 minutes.",
                     "minutesLeft", 5,
                     "lockedUntil", e.getLockedUntil() != null ? e.getLockedUntil().toString() : ""));
         } catch (RuntimeException e) {
+            userService.getUserByEmail(email).ifPresent(u -> loginLogService.record(u, "FACE", false, request));
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
         }
     }
@@ -111,7 +120,7 @@ public class FaceController {
      * Body: { "image": "base64..." }
      */
     @PostMapping("/identify-login")
-    public ResponseEntity<?> faceIdentifyLogin(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> faceIdentifyLogin(@RequestBody Map<String, String> body, HttpServletRequest request) {
         String image = body.get("image");
         if (image == null || image.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Face image is required."));
@@ -140,8 +149,10 @@ public class FaceController {
 
         try {
             User user = userService.faceLoginById(userId);
+            loginLogService.record(user, "FACE", true, request);
             return ResponseEntity.ok(user);
         } catch (UserBannedException e) {
+            userService.getUserById(userId).ifPresent(u -> loginLogService.record(u, "FACE", false, request));
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.toResponseBody());
         } catch (AccountLockedException e) {
             return ResponseEntity.status(423).body(Map.of(

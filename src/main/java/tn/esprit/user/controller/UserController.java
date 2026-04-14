@@ -9,11 +9,13 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.servlet.http.HttpServletRequest;
 
 import tn.esprit.user.entity.User;
 import tn.esprit.user.exception.AccountLockedException;
 import tn.esprit.user.exception.UserBannedException;
 import tn.esprit.user.services.CaptchaService;
+import tn.esprit.user.services.LoginLogService;
 import tn.esprit.user.services.UserService;
 
 import java.io.IOException;
@@ -32,11 +34,15 @@ public class UserController {
     @Autowired
     private CaptchaService captchaService;
 
+    @Autowired
+    private LoginLogService loginLogService;
+
     @Value("${app.faces.upload.dir:/var/www/faces}")
     private String facesUploadDir;
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, Object> loginRequest) {
+    public ResponseEntity<?> login(@RequestBody Map<String, Object> loginRequest, HttpServletRequest request) {
+        String attemptEmail = (String) loginRequest.get("email");
         try {
             // Verify CAPTCHA first
             String captchaId = (String) loginRequest.get("captchaId");
@@ -52,16 +58,20 @@ public class UserController {
             String email = (String) loginRequest.get("email");
             String pwd = (String) loginRequest.get("pwd");
             User user = userService.login(email, pwd);
+            loginLogService.record(user, "PASSWORD", true, request);
             return ResponseEntity.ok(user);
         } catch (UserBannedException e) {
+            userService.getUserByEmail(attemptEmail).ifPresent(u -> loginLogService.record(u, "PASSWORD", false, request));
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.toResponseBody());
         } catch (AccountLockedException e) {
+            userService.getUserByEmail(attemptEmail).ifPresent(u -> loginLogService.record(u, "PASSWORD", false, request));
             return ResponseEntity.status(423).body(Map.of(
                     "type", "ACCOUNT_LOCKED",
                     "message", "Too many failed attempts. Your account is locked for 5 minutes.",
                     "minutesLeft", 5,
                     "lockedUntil", e.getLockedUntil() != null ? e.getLockedUntil().toString() : ""));
         } catch (RuntimeException e) {
+            userService.getUserByEmail(attemptEmail).ifPresent(u -> loginLogService.record(u, "PASSWORD", false, request));
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
         }
     }

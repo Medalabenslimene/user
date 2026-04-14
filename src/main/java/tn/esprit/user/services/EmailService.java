@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -35,6 +36,7 @@ public class EmailService {
         }
     }
 
+    @Async
     public void sendVerificationCode(String toEmail, String code) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -49,6 +51,7 @@ public class EmailService {
         }
     }
 
+    @Async
     public void sendAccountLockedEmail(String toEmail, String name) {
         try {
             MimeMessage message = mailSender.createMimeMessage();

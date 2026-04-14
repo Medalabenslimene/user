@@ -166,11 +166,18 @@ public class UserService {
     }
 
     public User createUser(User user) {
+        if (user.getEmail() != null && userRepository.findByEmail(user.getEmail()).isPresent()) {
+            throw new RuntimeException("An account with this email already exists.");
+        }
         user.setEmailVerified(false);
         String hashedPassword = passwordService.hashPassword(user.getPwd());
         user.setPwd(hashedPassword);
         User savedUser = userRepository.save(user);
-        emailVerificationService.sendVerificationCode(savedUser);
+        try {
+            emailVerificationService.sendVerificationCode(savedUser);
+        } catch (Exception e) {
+            // Don't block signup on transient SMTP failures — user can use "resend code"
+        }
         return savedUser;
     }
 
