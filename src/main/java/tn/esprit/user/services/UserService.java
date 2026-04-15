@@ -156,11 +156,12 @@ public class UserService {
             }
         }
 
-        // 5. Successful login — reset failed attempts
+        // 5. Successful login — reset failed attempts and issue a new session token
         if (u.getFailedAttempts() != null && u.getFailedAttempts() > 0) {
             u.setFailedAttempts(0);
             u.setLockedUntil(null);
         }
+        u.setSessionToken(UUID.randomUUID().toString());
         userRepository.save(u);
         return u;
     }
@@ -429,11 +430,12 @@ public class UserService {
             }
         }
 
-        // Reset failed attempts on successful face login
+        // Reset failed attempts on successful face login and issue a new session token
         if (u.getFailedAttempts() != null && u.getFailedAttempts() > 0) {
             u.setFailedAttempts(0);
             u.setLockedUntil(null);
         }
+        u.setSessionToken(UUID.randomUUID().toString());
         userRepository.save(u);
         return u;
     }
@@ -554,11 +556,12 @@ public class UserService {
                     "Face not recognized. " + remaining + " attempt" + (remaining > 1 ? "s" : "") + " remaining.");
         }
 
-        // 6. Successful face login — reset failed attempts
+        // 6. Successful face login — reset failed attempts and issue a new session token
         if (u.getFailedAttempts() != null && u.getFailedAttempts() > 0) {
             u.setFailedAttempts(0);
             u.setLockedUntil(null);
         }
+        u.setSessionToken(UUID.randomUUID().toString());
         userRepository.save(u);
         return u;
     }

@@ -94,9 +94,10 @@ public class GoogleAuthService {
 
             if (!Boolean.TRUE.equals(user.getEmailVerified())) {
                 user.setEmailVerified(true);
-                userRepository.save(user);
             }
 
+            user.setSessionToken(UUID.randomUUID().toString());
+            userRepository.save(user);
             return user;
         }
 
@@ -117,6 +118,7 @@ public class GoogleAuthService {
                 .coins(0)
                 .banned(false)
                 .failedAttempts(0)
+                .sessionToken(UUID.randomUUID().toString())
                 .build();
 
         return userRepository.save(newUser);

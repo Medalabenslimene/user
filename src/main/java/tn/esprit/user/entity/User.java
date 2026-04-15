@@ -126,4 +126,8 @@ private Integer failedAttempts = 0;
 
 @Column(name = "lockeduntil")
 private LocalDateTime lockedUntil;
+
+// -------- SESSION fields --------
+@Column(name = "sessiontoken")
+private String sessionToken;
 }

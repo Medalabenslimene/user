@@ -26,5 +26,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("UPDATE User u SET u.banned = false, u.banReason = null, u.banDuration = null, u.banExpiresAt = null WHERE u.id = :id")
     int unbanUserById(@Param("id") Long id);
 
+    @Modifying
+    @Query("UPDATE User u SET u.sessionToken = null WHERE u.id = :id")
+    void clearSessionToken(@Param("id") Long id);
+
     boolean existsById(Long id);
 }
