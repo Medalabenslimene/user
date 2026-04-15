@@ -67,6 +67,52 @@ public class EmailService {
         }
     }
 
+    @Async
+    public void sendParentalWelcomeEmail(String toEmail, String childName) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("👋 Your child has joined MiNoLingo!");
+            helper.setText(buildParentalWelcomeBody(childName), true);
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new RuntimeException("Failed to send parental welcome email", e);
+        }
+    }
+
+    private String buildParentalWelcomeBody(String childName) {
+        String safeName = escapeHtml(childName != null ? childName : "your child");
+        StringBuilder html = new StringBuilder();
+        html.append("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'></head>");
+        html.append("<body style='margin:0;padding:0;background-color:#f0f2f5;font-family:\"Segoe UI\",Roboto,Arial,sans-serif;'>");
+        html.append("<table width='100%' cellpadding='0' cellspacing='0' style='background-color:#f0f2f5;padding:40px 20px;'><tr><td align='center'>");
+        html.append("<table width='600' cellpadding='0' cellspacing='0' style='max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);'>");
+        html.append("<tr><td style='background:linear-gradient(135deg,#38a9f3 0%,#6366f1 100%);padding:40px 40px 32px;text-align:center;'>");
+        html.append("<h1 style='margin:0 0 8px;font-size:32px;font-weight:800;color:#ffffff;'>🌍 MiNoLingo</h1>");
+        html.append("<p style='margin:0;font-size:14px;color:rgba(255,255,255,0.85);letter-spacing:0.5px;text-transform:uppercase;'>Parental Notification</p>");
+        html.append("</td></tr>");
+        html.append("<tr><td style='background-color:#ffffff;padding:32px 40px;text-align:center;'>");
+        html.append("<div style='display:inline-block;background:linear-gradient(135deg,#38a9f3,#6366f1);border-radius:50%;width:64px;height:64px;line-height:64px;text-align:center;margin-bottom:16px;'><span style='font-size:32px;'>🎉</span></div>");
+        html.append("<h2 style='margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;'>Welcome to the MiNoLingo family!</h2>");
+        html.append("<p style='margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6;'>We're happy to let you know that <strong style='color:#1e293b;'>").append(safeName).append("</strong> has just joined <strong>MiNoLingo</strong>, a fun and safe language-learning platform for kids.</p>");
+        html.append("<div style='background-color:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:20px 24px;text-align:left;margin-bottom:24px;'>");
+        html.append("<p style='margin:0 0 8px;font-size:14px;color:#0369a1;font-weight:700;'>👨‍👩‍👧 What to expect</p>");
+        html.append("<ul style='margin:0;padding-left:20px;font-size:14px;color:#0369a1;line-height:1.8;'>");
+        html.append("<li>Interactive lessons, quizzes, and games</li>");
+        html.append("<li>Progress tracking with XP, streaks, and rewards</li>");
+        html.append("<li>A secure, moderated community</li>");
+        html.append("</ul></div>");
+        html.append("<p style='margin:0;font-size:13px;color:#94a3b8;'>If you have any questions, contact us at <a href='mailto:mino.support@minolingo.online' style='color:#38a9f3;text-decoration:none;'>mino.support@minolingo.online</a></p>");
+        html.append("</td></tr>");
+        html.append("<tr><td style='background-color:#ffffff;padding:24px 40px 32px;text-align:center;border-top:1px solid #e2e8f0;'>");
+        html.append("<p style='margin:0;font-size:13px;color:#94a3b8;'>Thank you for trusting <strong style='color:#6366f1;'>MiNoLingo</strong></p>");
+        html.append("<p style='margin:8px 0 0;font-size:11px;color:#cbd5e1;'>© 2026 MiNoLingo. All rights reserved.</p>");
+        html.append("</td></tr></table></td></tr></table></body></html>");
+        return html.toString();
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // HTML Builders
     // ─────────────────────────────────────────────────────────────────────────

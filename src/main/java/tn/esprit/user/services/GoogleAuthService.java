@@ -119,6 +119,7 @@ public class GoogleAuthService {
                 .banned(false)
                 .failedAttempts(0)
                 .sessionToken(UUID.randomUUID().toString())
+                .needsSetup(true)
                 .build();
 
         return userRepository.save(newUser);

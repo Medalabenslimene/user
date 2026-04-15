@@ -130,4 +130,11 @@ private LocalDateTime lockedUntil;
 // -------- SESSION fields --------
 @Column(name = "sessiontoken")
 private String sessionToken;
+
+// -------- GOOGLE SIGNUP fields --------
+@Column(name = "parentalemail")
+private String parentalEmail;
+
+@Column(name = "needssetup")
+private Boolean needsSetup = false;
 }
