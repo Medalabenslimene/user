@@ -16,7 +16,7 @@ pipeline {
             }
         }
        
-        g
+        
         stage('SonarQube Analysis') {
             steps {
                 sh 'mvn sonar:sonar -Dsonar.login=sqp_673c297eee70335ed247fb46e1600e5b8344d380'
