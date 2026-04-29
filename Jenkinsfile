@@ -5,7 +5,7 @@ pipeline {
         jdk 'JDK17'
     }
     environment {
-        DOCKER_IMAGE = 'medalabenslimene/user-service'
+        DOCKER_IMAGE = 'medala10/user-service'
         DOCKER_TAG = "${BUILD_NUMBER}"
         CONTAINER_NAME = 'user-service-app'
     }
@@ -40,6 +40,14 @@ pipeline {
                 sh "docker build -t ${DOCKER_IMAGE}:latest ."
             }
         }
+        stage('Docker Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh "docker push ${DOCKER_IMAGE}:latest"
+                }
+            }
+        }
         stage('Deploy') {
             steps {
                 sh """
@@ -48,6 +56,11 @@ pipeline {
                     docker run -d --name ${CONTAINER_NAME} --network devops-net -p 8083:8080 ${DOCKER_IMAGE}:latest
                 """
             }
+        }
+    }
+    post {
+        always {
+            sh 'docker logout || true'
         }
     }
 }
