@@ -10,14 +10,14 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/Medalabenslimene/user'
             }
         }
-        stage('Build') {
-            steps {
-                sh 'mvn clean compile'
-            }
-        }
-       stage('Test') {
+       stage('Build') {
     steps {
-        sh 'mvn test -Dmaven.test.failure.ignore=true'
+        sh 'mvn clean compile'
+    }
+}
+     stage('Test') {
+    steps {
+        sh 'mvn verify -Dmaven.test.failure.ignore=true'
     }
 }
         
