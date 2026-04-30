@@ -6,8 +6,6 @@ pipeline {
     }
     environment {
         DOCKER_IMAGE = 'medala10/user-service'
-        DOCKER_TAG = "${BUILD_NUMBER}"
-        CONTAINER_NAME = 'user-service-app'
     }
     stages {
         stage('Checkout') {
@@ -48,17 +46,11 @@ pipeline {
                 }
             }
         }
-        stage('Deploy') {
-            steps {
-                sh """
-                    docker stop ${CONTAINER_NAME} || true
-                    docker rm ${CONTAINER_NAME} || true
-                    docker run -d --name ${CONTAINER_NAME} --network devops-net -p 8083:8080 ${DOCKER_IMAGE}:latest
-                """
-            }
-        }
     }
     post {
+        success {
+            build job: 'user-pipeline-CD', wait: false
+        }
         always {
             sh 'docker logout || true'
         }
