@@ -63,6 +63,7 @@ public class UserService {
         // 1. Find user by email only
         Optional<User> optUser = userRepository.findByEmail(email);
         if (optUser.isEmpty()) {
+            loginRateLimiterService.recordFailedAttempt(email);
             throw new RuntimeException("Invalid email or password");
         }
 
