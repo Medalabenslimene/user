@@ -6,8 +6,8 @@ import org.springframework.transaction.annotation.Transactional;
 import tn.esprit.user.entity.User;
 import tn.esprit.user.repository.UserRepository;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.Random;
 
 @Service
 public class EmailVerificationService {
@@ -21,7 +21,7 @@ public class EmailVerificationService {
     @Transactional
     public void sendVerificationCode(User user) {
         // Generate 6-digit code
-        String code = String.format("%06d", new Random().nextInt(999999));
+        String code = String.format("%06d", new SecureRandom().nextInt(1000000));
 
         user.setVerificationCode(code);
         user.setVerificationCodeExpiry(LocalDateTime.now().plusMinutes(10));

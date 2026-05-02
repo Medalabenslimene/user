@@ -14,6 +14,7 @@ import tn.esprit.user.exception.UserBannedException;
 import tn.esprit.user.repository.UserRepository;
 import tn.esprit.user.services.EmailService;
 import tn.esprit.user.services.EmailVerificationService;
+import tn.esprit.user.services.LoginRateLimiterService;
 import tn.esprit.user.services.PasswordService;
 import tn.esprit.user.services.UserService;
 
@@ -24,8 +25,11 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class UserServiceTest {
 
     @Mock
@@ -40,6 +44,9 @@ class UserServiceTest {
     @Mock
     private PasswordService passwordService;
 
+    @Mock
+    private LoginRateLimiterService loginRateLimiterService;
+
     @InjectMocks
     private UserService userService;
 
@@ -47,6 +54,7 @@ class UserServiceTest {
     void injectValues() {
         ReflectionTestUtils.setField(userService, "frontendUrl", "http://localhost:4200");
         ReflectionTestUtils.setField(userService, "facesUploadDir", "/tmp/faces");
+        when(loginRateLimiterService.isBlocked(anyString())).thenReturn(false);
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

@@ -248,7 +248,6 @@ public class UserService {
         if (optUser.isEmpty()) {
             return Optional.empty();
         }
-        User user = optUser.get();
         String expiresAt = (banExpiresAt != null && !banExpiresAt.isEmpty()) ? banExpiresAt : null;
         userRepository.banUserById(id, reason.trim(), duration, expiresAt);
         return userRepository.findById(id);
@@ -260,7 +259,6 @@ public class UserService {
         if (optUser.isEmpty()) {
             return Optional.empty();
         }
-        User user = optUser.get();
         userRepository.unbanUserById(id);
         return userRepository.findById(id);
     }
@@ -276,7 +274,8 @@ public class UserService {
     }
 
     public String saveAvatar(Long id, MultipartFile file) throws IOException {
-        Optional<User> optUser = userRepository.findById(id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found."));
         String uploadDir = "uploads/avatars";
         Path uploadPath = Paths.get(uploadDir);
         if (!Files.exists(uploadPath)) {
@@ -289,7 +288,6 @@ public class UserService {
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
         String avatarUrl = frontendUrl + "/api/users/avatars/" + fileName;
-        User user = optUser.get();
         user.setAvatar(avatarUrl);
         userRepository.save(user);
         return avatarUrl;
