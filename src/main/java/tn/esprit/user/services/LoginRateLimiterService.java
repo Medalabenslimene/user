@@ -17,33 +17,54 @@ public class LoginRateLimiterService {
     private RedisTemplate<String, String> redisTemplate;
 
     public void recordFailedAttempt(String email) {
-        String key = KEY_PREFIX + email;
-        Long attempts = redisTemplate.opsForValue().increment(key);
-        if (attempts == 1) {
-            redisTemplate.expire(key, LOCK_DURATION_MINUTES, TimeUnit.MINUTES);
+        try {
+            String key = KEY_PREFIX + email;
+            Long attempts = redisTemplate.opsForValue().increment(key);
+            if (attempts == 1) {
+                redisTemplate.expire(key, LOCK_DURATION_MINUTES, TimeUnit.MINUTES);
+            }
+        } catch (Exception e) {
+            System.out.println("Redis unavailable - skipping rate limit recording: " + e.getMessage());
         }
     }
 
     public boolean isBlocked(String email) {
-        String key = KEY_PREFIX + email;
-        String attempts = redisTemplate.opsForValue().get(key);
-        if (attempts == null) return false;
-        return Integer.parseInt(attempts) >= MAX_ATTEMPTS;
+        try {
+            String key = KEY_PREFIX + email;
+            String attempts = redisTemplate.opsForValue().get(key);
+            if (attempts == null) return false;
+            return Integer.parseInt(attempts) >= MAX_ATTEMPTS;
+        } catch (Exception e) {
+            System.out.println("Redis unavailable - skipping block check: " + e.getMessage());
+            return false;
+        }
     }
 
     public int getAttempts(String email) {
-        String key = KEY_PREFIX + email;
-        String attempts = redisTemplate.opsForValue().get(key);
-        return attempts == null ? 0 : Integer.parseInt(attempts);
+        try {
+            String key = KEY_PREFIX + email;
+            String attempts = redisTemplate.opsForValue().get(key);
+            return attempts == null ? 0 : Integer.parseInt(attempts);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     public void resetAttempts(String email) {
-        redisTemplate.delete(KEY_PREFIX + email);
+        try {
+            redisTemplate.delete(KEY_PREFIX + email);
+        } catch (Exception e) {
+            System.out.println("Redis unavailable - skipping reset: " + e.getMessage());
+        }
     }
 
     public long getTimeToUnlock(String email) {
-        String key = KEY_PREFIX + email;
-        Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
-        return ttl == null ? 0 : ttl;
+        try {
+            String key = KEY_PREFIX + email;
+            Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+            return ttl == null ? 0 : ttl;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }
