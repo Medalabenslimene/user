@@ -42,6 +42,9 @@ public class UserService {
     @Autowired
     private PasswordService passwordService;
 
+    @Autowired
+    private LoginRateLimiterService loginRateLimiterService;
+
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
@@ -49,6 +52,14 @@ public class UserService {
     private String facesUploadDir;
 
     public User login(String email, String pwd) {
+        if (loginRateLimiterService.isBlocked(email)) {
+            long secondsLeft = loginRateLimiterService.getTimeToUnlock(email);
+            LocalDateTime unlockTime = LocalDateTime.now().plusSeconds(secondsLeft);
+            throw new AccountLockedException(
+                    "Too many failed attempts. Try again in " + ((secondsLeft / 60) + 1) + " minutes.",
+                    unlockTime, MAX_FAILED_ATTEMPTS);
+        }
+
         // 1. Find user by email only
         Optional<User> optUser = userRepository.findByEmail(email);
         if (optUser.isEmpty()) {
@@ -131,6 +142,7 @@ public class UserService {
         if (!passwordMatches) {
             int attempts = (u.getFailedAttempts() != null ? u.getFailedAttempts() : 0) + 1;
             u.setFailedAttempts(attempts);
+            loginRateLimiterService.recordFailedAttempt(email);
 
             if (attempts >= MAX_FAILED_ATTEMPTS) {
                 // Lock the account for 5 minutes
@@ -162,6 +174,7 @@ public class UserService {
             u.setFailedAttempts(0);
             u.setLockedUntil(null);
         }
+        loginRateLimiterService.resetAttempts(email);
         u.setSessionToken(UUID.randomUUID().toString());
         userRepository.save(u);
         return u;
