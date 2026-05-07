@@ -48,11 +48,18 @@ pipeline {
         }
     }
     post {
+        always {
+            junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+            jacoco(
+                execPattern: '**/target/jacoco.exec',
+                classPattern: '**/target/classes',
+                sourcePattern: '**/src/main/java',
+                exclusionPattern: '**/src/test*'
+            )
+            sh 'docker logout || true'
+        }
         success {
             build job: 'user-pipeline-CD', wait: false
-        }
-        always {
-            sh 'docker logout || true'
         }
     }
 }
